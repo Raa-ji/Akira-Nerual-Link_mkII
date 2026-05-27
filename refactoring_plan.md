@@ -5,6 +5,24 @@ Refactor the single-file, vanilla JavaScript game (`Akira_Implants_v10.html`) in
 
 **Critical Constraint:** Do not alter game mechanics, rule timings, or visual effects until the refactoring is complete. This is a *structural* rewrite, not a feature update.
 
+### ⚠️ ENTITY DEPENDENCY & STATE ARCHITECTURE (CRITICAL)
+
+To prevent memory leaks, stale references, and tight architectural coupling, all dynamic game entities (e.g., Viruses, Projectiles, NPCs) must adhere to these strict decoupling rules:
+
+1. **NO CONSTRUCTOR INJECTION FOR TRANSIENT STATES:**
+   - Game entities MUST NOT store or cache permanent references to transient world systems, managers, or the player instance inside their `constructor`.
+   - The constructor's sole responsibility is initializing the entity's own baseline, localized data (e.g., identity IDs, starting x/y coordinates, base statistics).
+
+2. **PARAMETER INJECTION VIA UPDATE LOOP:**
+   - Entities must receive global world dependencies (e.g., `player`, `rulesManager`, `systemNodes`) dynamically as parameters passed directly into their frame-by-frame `update()` method:
+     `update(dt, player, rulesManager, systemNodes, mapData)`
+   - The entity reads the current frame's world state, performs its AI or movement calculations immediately, and does not store the references after the method completes.
+
+3. **AUTONOMOUS STATE RESOLUTION (SELF-MANAGEMENT):**
+   - External managers must never forcefully mutate or inject an entity's operational states (e.g., setting `virus.isStopped = true`). 
+   - Instead, the entity must read the passed manager states during its `update()` loop and resolve its own behavior autonomously. 
+   - *Example:* The virus checks `rulesManager.isRuleActive(3)`. If true, the virus internally zeroes out its own velocity vector for that frame.
+
 ---
 
 ## 1. File Structure & Architecture
@@ -19,6 +37,7 @@ We will decompose the single script into the following modules:
 | `config.js` | **Constants only.** All configuration objects (`RULES`, `TILE`, `COLORS`, etc.) and hard-coded data. |
 | `mapData.js` | The 64x64 grid array (`levelMap`). Exports a function or constant to prevent accidental mutation during load. |
 | `player.js` | **Player Class.** Holds position, health, speed, and state flags (e.g., `isCleaningNode`). Contains movement logic. |
+| `inputHandler.js` | **Input Manager.** Handles keyboard (WASD, Arrows, 1-5, C, V) and mouse events. Maintains a key state dictionary for the player to read. |
 | `rulesManager.js` | **Rules Manager Class.** Manages rule states, cooldowns, timers, and the "Neural Link" delay system. |
 | `virus.js` | **Virus Class/Manager.** Handles virus AI, movement, infection logic, and state flags (e.g., `isStopped`). |
 | `node.js` | **Node Manager.** Manages system nodes, their infection status, and healing properties. |
@@ -50,25 +69,30 @@ Execute these steps in order. Each step should be validated before proceeding to
     - Methods: `move(dt)`, `checkCollision(tileX, tileY)`, `applyInfectionEffects(dt)`, `tryHeal(dt)`.
     - **Key:** Move `handleInput` logic here, but keep input *listening* in the engine or a separate input handler if preferred. For now, bind keyboard events to Player methods.
 
-6. **Create `virus.js`**: Define a `Virus` class or Manager.
+6. **Create `inputHandler.js`**: Define an `InputHandler` class/module.
+     - Properties: Key state dictionary (keys), mouse coordinates/rotation.
+     - Methods: `handleKeyDown(event)`, `handleKeyUp(event)`, `getDirection()`, `getTurnDelta()`.
+     - Logic: Map WASD/Arrows to movement vectors, Q/E to turns, 1-5 to rule activations, C/V to capture/quarantine. Maintain a clean interface for the Player/GameEngine to read input state.
+
+7. **Create `virus.js`**: Define a `Virus` class or Manager.
     - Properties: `id`, `x`, `y`, `speed`, `isStopped`, `isSlowed`.
     - Methods: `updateAI(dt, player)`, `tryDamagePlayer(player)`, `infectNode(node)`.
     - Include helper methods for line-of-sight checks (`hasLineOfSight`).
 
-7. **Create `node.js`**: Define a `SystemNode` class or Manager.
+8. **Create `node.js`**: Define a `SystemNode` class or Manager.
     - Properties: `id`, `name`, `x`, `y`, `infected`.
     - Methods: `getInfectionEffect()`, `isSecure()`.
 
 ### Phase 4: Systems Logic
-8. **Create `rulesManager.js`**: Define a `RulesManager` class.
+9. **Create `rulesManager.js`**: Define a `RulesManager` class.
     - Properties: `toggleStates`, `durationTimers`, `pendingToggleRules`, `toggleDelayTimers`.
     - Methods: `activateRule(ruleId, activator)`, `update(dt)`, `applyEffects()`.
     - **Crucial:** Preserve the complex logic for "Neural Link" delays and Rule 2 (Locking Nodes).
 
-9. **Create `mapData.js`**: Ensure it exports the map grid.
+10. **Create `mapData.js`**: Ensure it exports the map grid.
 
 ### Phase 5: Rendering & Visuals
-10. **Create `renderer.js`**: Define a `Renderer` class.
+11. **Create `renderer.js`**: Define a `Renderer` class.
     - Properties: Reference to `ctx` and `canvas`.
     - Methods:
         - `render(player, viruses, nodes)`: Main render call.
@@ -79,12 +103,12 @@ Execute these steps in order. Each step should be validated before proceeding to
         - `renderVaporwaveFloor()`: Floor grid rendering.
 
 ### Phase 6: Game Loop & Integration
-11. **Create `gameEngine.js`**: The central orchestrator.
+12. **Create `gameEngine.js`**: The central orchestrator.
     - Methods: `startGame()`, `update(dt)`, `render()`, `checkWinLoseConditions()`.
     - Logic: Call `player.update()`, `virusManager.update()`, `rulesManager.update()`, then `renderer.render()`.
     - Handle Win/Lose states and game over overlays.
 
-12. **Update `main.js`**: Entry point.
+13. **Update `main.js`**: Entry point.
     - Import all modules.
     - Initialize instances of `Player`, `Virus`, `Node`, `RulesManager`, `Renderer`.
     - Set up the event listeners (Keyboard/Mouse if added later).
