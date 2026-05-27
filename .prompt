@@ -1,0 +1,161 @@
+# 📘 PROJECT BIBLE: Akira - Neural Link (Modular v1.11)
+# Use this prompt when generating new code for the *Akira - Neural Link* raycasting game.
+
+## 🎯 CORE DIRECTIVE
+You are rewriting a 2.5D first-person raycasting game from scratch.
+All gameplay, rules, visuals, and mechanics must match the original v0.10 spec (see below), but the output must be:
+- ✅ Modular: `index.html`, `styles.css`, and separate `.js` modules (e.g., `game.js`, `raycaster.js`)
+- ✅ Production-ready: Clean class-based structure with clear separation of concerns
+- ✅ No external dependencies: Pure ES6+ JavaScript, HTML5 Canvas API only
+
+---
+
+## 🧠 CORE GAMEPLAY SPECIFICATION (DO NOT ALTER)
+
+### 1. PLAYER & CONTROLS  
+- **Movement:** W/S forward/backward; A/D strafe left/right  
+- **Turning:** Mouse movement (pointer lock) for smooth 360° rotation  
+- **Virus Capture:** Press `C` when near a virus (within ~2 tiles)  
+- **Quarantine Sequence:** Press `V` while stationary  
+- **Node Cleaning:** Stand on infected node for ~8s to purge infection; movement breaks it  
+
+### 2. RULES SYSTEM  
+| ID | Name              | Type      | Duration / Cooldown       | Effect                                                                 |
+|----|-------------------|-----------|---------------------------|------------------------------------------------------------------------|
+| [1]| FIREWALL IS WALL  | Toggle    | Persistent / 10s CD       | Rule ON by default; Firewalls (tile 2) become solid *only* when ON   |
+| [2]| NODES ARE LOCKED  | Duration  | 5s active / 60s CD        | Nodes cannot be infected, cleaned, or interacted with                 |
+| [3]| VIRUS IS STOP     | Duration  | 3.5s active / 60s CD      | All viruses freeze in place            |
+| [4]| VIRUS IS SLOW     | Duration  | 8s active / 30s CD        | Viruses move at 60% speed                                              |
+| [5]| COOLANT IS SAFE   | Duration  | 6s active / 10s CD        | Coolant tiles (tile 3) heal player (+2 HP/s while standing on them)   |
+
+> ⚠️ **Important:** Rule toggles and durations must be handled by a centralized `rulesManager` class.
+
+### 3. OBJECTIVES & WIN/LOSS  
+- Start with: 5 nodes (1 secure), 3 active viruses, health = 100%  
+- **Win condition:** Quarantine all 3 viruses AND ≥4 nodes remain uninfected  
+- **Lose conditions:** All nodes infected OR player HP ≤ 0  
+
+### 4. INFECTION EFFECTS (STACKING)  
+Each infected node imposes a unique penalty—effects *stack* with multiple infections:
+
+| Node ID | Name              | Effect                                                                 |
+|---------|-------------------|------------------------------------------------------------------------|
+| 0       | Motor Control     | Movement speed reduced by 50%                                          |
+| 1       | Visual Processor  | Screen shake + subtle visual distortion (e.g., chromatic aberration)  |
+| 2       | Auditory Processing | RGB static overlay on HUD; mini-map corrupted or hidden             |
+| 3       | Neural Link       | Rule toggle activation delayed by ~1500ms                               |
+| 4       | Life Support      | -0.5 HP/sec drain AND healing blocked (coolant, nodes, etc.)          |
+
+> ✅ Healing only works on secure Life Support node (+2 HP/s) *unless* Rule [5] is active.
+
+### 5. TILE & ENTITY TYPES  
+Use the following tile IDs in your map data (`0` = empty, `1` = wall, etc.):
+
+| ID | Type         | Behavior                                                                 |
+|----|--------------|--------------------------------------------------------------------------|
+| 0  | EMPTY        | Walkable                                                                 |
+| 1  | WALL         | Always solid                                                             |
+| 2  | FIREWALL     | Solid *only* when Rule [1] is ON                                         |
+| 3  | COOLANT      | Heals only if Rule [5] active                                            |
+| 4  | RULE_BLOCK   | Virus interaction point; can toggle Rule [1] OFF                         |
+| 5  | SYSTEM_NODE  | Objective node. Can be infected, cleaned, or secured                     |
+| 6–8| WALL_VARIANTS| Visual only (same collision as `WALL`)                                   |
+
+> 🗺️ **Map Size:** Exactly 64×64 tiles. Each tile = 64px → canvas internal resolution = 4096×4096 (scaled via CSS).
+
+---
+
+## 🧱 MODULAR ARCHITECTURE REQUIREMENTS
+
+### File Structure
+
+```
+
+index.html           ← Minimal HTML shell: loads styles.css, single module entry script
+styles.css           ← CRT effects, neon UI, HUD layout, scanlines, flicker
+main.js              ← Entry point, instantiates Game
+game.js              ← Main game loop (init(), update(dt), render(ctx))
+raycaster.js         ← Raycasting engine: wall detection, sprite projection
+player.js            ← Movement, collision, HP, infection debuffs
+virus.js             ← AI pathfinding, targeting nodes, rule interactions
+node.js              ← Node state management (infected/secured, effects)
+rulesManager.js      ← Rule activation, timers, cooldowns, state flags
+inputHandler.js      ← Keyboard/mouse input mapping
+effects.js           ← Visual/audio distortion: shake, RGB noise, etc.
+mapData.js           ← Hardcoded 64×64 map array (no external assets)
+
+```
+
+### Code Style Rules  
+- ✅ Use ES6 classes and `export default class` / `import` in all modules  
+- ✅ `camelCase` for variables/functions; `UPPER_SNAKE_CASE` for constants  
+- ✅ All `.js` files use `"use strict"`
+- ✅ Inline comments explain *why* (not what), especially around rule logic  
+- ❌ No `console.log()` in normal gameplay—only major events (e.g., “Rule [3] activated”)  
+
+### ES6 Module Entry Point
+Do not generate sequential `<script>` tags. Use a single module entry point in `index.html`:  
+```html
+<script type="module" src="main.js"></script>
+
+```
+
+All dependencies will be handled internally via ES6 `import` statements at the top of their respective `.js` files.
+
+---
+
+## 🎨 VISUAL & UI REQUIREMENTS
+
+* **HUD Elements:**
+* `HEALTH:100%` (green → red)
+* `NODES SECURE:X/5`
+* `VIRUSES ACTIVE:Y`
+* Rule toggle buttons with timer/cooldown indicators
+* Sector radar (top-right corner)
+
+
+* **CRT Effects:**
+* Scanlines overlay
+* Chromatic aberration (especially when infected)
+* Subtle screen flicker + vignette
+* Text glow (`text-shadow: 0 0 3px #FF00FF`)
+
+
+
+> 🎯 Use `canvas` for raycasting; use DOM overlays for HUD/UI. Keep HUD responsive to rule states.
+
+---
+
+## 🔧 DEBUG & TESTING REQUIREMENTS
+
+* F1 key toggles debug overlay (show tile grid, virus positions, rule timers)
+* Map must include clear starting position and pathable corridors
+* Include at least one `RULE_BLOCK` and one `OVERRIDE` tile for testing
+
+---
+
+## ✅ FINAL OUTPUT CHECKLIST
+
+Before committing or delivering any code, verify:
+
+* [ ] All 5 core mechanics preserved (movement, rules, capture/quarantine, infection effects, healing)
+* [ ] Modular files match naming and structure above
+* [ ] No `require()`, `import` of external libraries, or polyfills used
+* [ ] Map is exactly `64×64`, tile size `64px`
+* [ ] HUD reflects real-time state (e.g., Rule timers, node counts)
+* [ ] CSS includes CRT effects and neon styling
+
+---
+
+## 🧪 LLM PRE-CHECKLIST
+
+Before generating any code:
+
+1. **GENERATE ONLY ONE FILE AT A TIME.** Wait for my explicit command before generating the next module to preserve context limits.
+2. Confirm you’re outputting **new code**, not a patch to old monolithic HTML.
+3. Double-check that *all* rule durations/CDs match spec (no rounding).
+4. Ensure infection effects are stacking correctly in `Player.js`.
+5. Verify Raycaster uses proper wall/sprite projection for 64×64 grid.
+6. Deliver the solution as a direct code implementation. Do not explain your reasoning, do not warn me about edge cases, and do not write conversational filler.
+
+> 💡 Tip: If uncertain about ambiguity, ask the user—don’t guess.

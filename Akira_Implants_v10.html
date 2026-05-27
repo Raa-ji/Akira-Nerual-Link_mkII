@@ -1,0 +1,2629 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neural Link - Virus Defense</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #000000;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+    }
+
+    #gameCanvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* HUD Overlay */
+    #hud {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(45, 0, 79, 0.85);
+      border: 2px solid #FF1493;
+      padding: 15px;
+      color: #00FFFF;
+      text-shadow: 0 0 10px #FF1493;
+      min-width: 350px;
+      font-size: 12px;
+      box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
+      z-index: 10;
+    }
+
+    #hud h3 {
+      color: #FF00FF;
+      border-bottom: 1px solid #FF1493;
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    .stat-row {
+      margin: 5px 0;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .stat-label {
+      color: #8B00FF;
+    }
+
+    .stat-value {
+      color: #00FFFF;
+      font-weight: bold;
+    }
+
+    /* Rule Display */
+    .rule-section {
+      margin-top: 15px;
+    }
+
+    .rule-title {
+      color: #FF1493;
+      border-bottom: 1px dashed #8B00FF;
+      padding-bottom: 3px;
+      margin-bottom: 5px;
+    }
+
+    .rule-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 6px;
+      margin: 3px 0;
+      border-radius: 3px;
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    .rule-item.ready {
+      box-shadow: inset 0 0 8px #00FF00;
+      color: #00FF00 !important;
+    }
+
+    .rule-item.active {
+      background: rgba(255, 160, 0, 0.3);
+      box-shadow: inset 0 0 8px #FFA500;
+    }
+
+    .rule-item.cooldown {
+      color: #FF4444 !important;
+    }
+
+    /* Health Bar */
+    #healthBar {
+      width: 100%;
+      height: 20px;
+      background: #333;
+      border: 2px solid #8B00FF;
+      margin-top: 5px;
+      position: relative;
+    }
+
+    #healthFill {
+      height: 100%;
+      background: linear-gradient(90deg, #FF0000, #FFA500, #00FF00);
+      transition: width 0.3s;
+      box-shadow: 0 0 10px #00FF00;
+    }
+
+    /* Infection Effects Warning Section */
+    .infection-warning {
+      margin-top: 15px;
+      border: 2px solid #FF4400;
+      background: rgba(255, 68, 0, 0.1);
+      padding: 8px;
+      border-radius: 3px;
+    }
+
+    .infection-warning-title {
+      color: #FF4400;
+      font-weight: bold;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      font-size: 10px;
+    }
+
+    .infection-effect-item {
+      padding: 3px 5px;
+      margin: 2px 0;
+      background: rgba(255, 68, 0, 0.2);
+      border-left: 3px solid #FF4400;
+      font-size: 11px;
+    }
+
+    .infection-effect-item.critical {
+      border-left-color: #FF0000;
+      background: rgba(255, 0, 0, 0.3);
+    }
+
+    /* Scanline Effect */
+    .scanlines {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.15) 2px, transparent 2px, transparent 4px);
+      z-index: 10;
+    }
+
+    /* CRT Glow */
+    .crt-glow {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      box-shadow: inset 0 0 150px rgba(255, 0, 255, 0.1);
+      z-index: 9;
+    }
+
+    /* Help Overlay */
+    #helpOverlay {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(45, 0, 79, 0.98);
+      border: 3px solid #FF1493;
+      padding: 20px;
+      color: #00FFFF;
+      max-width: 95vw;
+      max-height: 85vh;
+      width: auto;
+      min-width: 320px;
+      z-index: 100;
+      box-shadow: 0 0 30px rgba(255, 0, 255, 0.5);
+      overflow-y: auto;
+    }
+
+    #helpOverlay h2 {
+      color: #FF00FF;
+      text-align: center;
+      margin-bottom: 15px;
+      text-shadow: 0 0 10px #FF1493;
+    }
+
+    #helpOverlay .content-columns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    #helpOverlay .column {
+      flex: 1 1 calc(50% - 20px);
+      min-width: 280px;
+    }
+
+    /* Stack columns on smaller screens */
+    @media (max-width: 768px) {
+      #helpOverlay .column {
+        flex: 1 1 100%;
+        min-width: auto;
+      }
+    }
+
+    #helpOverlay .section {
+      margin: 12px 0;
+      padding: 8px 10px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 5px;
+    }
+
+    #helpOverlay h4 {
+      color: #FF1493;
+      margin-bottom: 8px;
+      font-size: clamp(12px, 2vw, 16px);
+    }
+
+    #helpOverlay ul {
+      padding-left: 20px;
+    }
+
+    #helpOverlay li {
+      margin: 4px 0;
+      font-size: clamp(10px, 1.5vw, 14px);
+    }
+
+    /* Center the close button and make it responsive */
+    #helpOverlay>div:last-child {
+      text-align: center;
+    }
+
+    @media (max-width: 480px) {
+      #helpOverlay h2 {
+        font-size: clamp(18px, 5vw, 24px);
+      }
+
+      #helpOverlay button {
+        font-size: clamp(12px, 3vw, 16px);
+        padding: 10px 20px;
+      }
+    }
+
+    /* Debug Overlay */
+    #debugOverlay {
+      display: none;
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.9);
+      border: 2px solid #00FF00;
+      padding: 15px;
+      color: #00FF00;
+      font-size: 10px;
+      z-index: 100;
+    }
+
+    /* Start Screen */
+    #startScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: linear-gradient(135deg, #2D004F 0%, #000000 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 200;
+    }
+
+    #startScreen h1 {
+      color: #FF00FF;
+      font-size: 48px;
+      text-shadow: 0 0 20px #FF1493, 0 0 40px #FF00FF;
+      margin-bottom: 20px;
+    }
+
+    #startScreen p {
+      color: #00FFFF;
+      font-size: 18px;
+      max-width: 500px;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    #startButton {
+      margin-top: 30px;
+      padding: 15px 40px;
+      font-size: 20px;
+      background: transparent;
+      color: #FF00FF;
+      border: 3px solid #FF1493;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      box-shadow: 0 0 20px rgba(255, 0, 255, 0.5);
+      transition: all 0.3s;
+    }
+
+    #startButton:hover {
+      background: #FF1493;
+      color: #000;
+      box-shadow: 0 0 30px rgba(255, 0, 255, 0.8);
+    }
+
+    /* ========================================= */
+    /* ✅ NEW: MINI-MAP (RADAR) STYLES           */
+    /* ========================================= */
+    #radar-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 260px;
+      height: 180px;
+      background: rgba(0, 20, 40, 0.9);
+      border: 2px solid #00FFFF;
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+      z-index: 15;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #radar-header {
+      background: rgba(0, 128, 255, 0.3);
+      color: #00FFFF;
+      font-size: 10px;
+      padding: 2px 8px;
+      text-align: center;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    #miniMapCanvas {
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      /* Keeps blocks crisp */
+    }
+
+    /* Radar Scanline overlay on top of map */
+    #radar-container::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 2px;
+      /* Below header */
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 255, 0.05) 3px);
+      pointer-events: none;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div class="scanlines"></div>
+  <div class="crt-glow"></div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <h3>Neural Link Established</h3>
+    <div class="stat-row"><span class="stat-label">HEALTH:</span><span class="stat-value" id="healthText">100%</span></div>
+    <div id="healthBar">
+      <div id="healthFill" style="width: 100%;"></div>
+    </div>
+    <div class="stat-row"><span class="stat-label">NODES SECURE:</span><span class="stat-value" id="nodesSecureText">5/5</span></div>
+    <div class="stat-row"><span class="stat-label">VIRUSES ACTIVE:</span><span class="stat-value" id="virusesActiveText">3</span></div>
+
+    <!-- ✅ NEW: Infection Effects Warning Section -->
+    <div id="infectionEffectsSection"></div>
+
+    <div id="captureStatusSection"></div>
+    <div class="rule-section">
+      <div class="rule-title">TOGGLE RULES (Press to flip):</div>
+      <div id="toggleRules"></div>
+    </div>
+    <div class="rule-section">
+      <div class="rule-title">DURATION RULES:</div>
+      <div id="durationRules"></div>
+    </div>
+  </div>
+
+  <!-- Help Overlay -->
+  <div id="helpOverlay">
+    <h2>NEURAL LINK - CONTROLS</h2>
+    <div class="content-columns">
+      <div class="column">
+        <div class="section">
+          <h4>MOVEMENT</h4>
+          <ul>
+            <li><strong>W / Up:</strong> Move Forward</li>
+            <li><strong>S / Down:</strong> Move Backward</li>
+            <li><strong>A / Left:</strong> Strafe Left</li>
+            <li><strong>D / Right:</strong> Strafe Right</li>
+            <li><strong>Q + ← (ArrowLeft):</strong> Turn Left</li>
+            <li><strong>E + →:</strong> Turn Right</li>
+          </ul>
+        </div>
+        <div class="section">
+          <h4>RULES (1-5) - ALL AVAILABLE!</h4>
+          <p><strong>TOGGLE RULES:</strong> Press to activate/deactivate. Stay ON until toggled OFF.</p>
+          <ul>
+            <li><strong>[1]</strong> FIREWALL IS WALL - Firewalls become solid barriers</li>
+            <li><strong>[2]</strong> NODES ARE LOCKED - Nodes cannot be infected (or interacted with)</li>
+            <li style="color: #FFA500;"><em>*Locked nodes also block infection effects!</em></li>
+          </ul>
+        </div>
+        <div class="section">
+          <h4>DURATION RULES:</h4>
+          <p>Activate for fixed time, then enter cooldown before reuse.</p>
+          <ul>
+            <li><strong>[3]</strong> VIRUS IS STOP - Viruses freeze (3.5s) | 52.5s CD</li>
+            <li><strong>[4]</strong> VIRUS IS SLOW - Viruses move at 60% speed (8s) | 20s CD</li>
+            <li><strong>[5]</strong> COOLANT IS SAFE - Coolant heals you (6s) | 12s CD</li>
+          </ul>
+        </div>
+        <div class="section">
+          <h4>CAPTURE & QUARANTINE</h4>
+          <ul>
+            <li><strong>[C]</strong> Capture Virus (when nearby)</li>
+            <li><strong>[V] alone:</strong> Start Quarantine Sequence (hold still for 20s)</li>
+          </ul>
+        </div>
+      </div>
+      <div class="column">
+        <div class="section">
+          <h4>CLEANING INFECTED NODES ⚡</h4>
+          <p><strong>AUTO-TRIGGER:</strong> Stand directly on an infected node to begin cleaning.</p>
+          <ul>
+            <li>Hold position for ~8 seconds (124 config) to clean the infection</li>
+            <li>Moving too far away will cancel progress</li>
+            <li>Viruses nearby can interrupt your cleaning!</li>
+            <li><strong>Note:</strong> Locked nodes (Rule [2]) cannot be cleaned or apply effects</li>
+          </ul>
+        </div>
+        <div class="section">
+          <h4>⚠️ INFECTION EFFECTS - HARDWARE FAILURE ⚠️</h4>
+          <p>Your cybernetic implants are failing! Each infected node causes system-wide effects:</p>
+          <ul>
+            <li><strong>Motor Control (Node 0):</strong> Movement speed reduced by 50%</li>
+            <li><strong>Visual Processor (Node 1):</strong> Screen shake + visual distortion</li>
+            <li><strong>Auditory Processing (Node 2):</strong> RGB static/color interference</li>
+            <li><strong>Neural Link (Node 3):</strong> Toggle rules have delayed activation!</li>
+            <li><strong>Life Support (Node 4):</strong> Health drains (-0.5 HP/sec) + healing blocked</li>
+          </ul>
+          <p style="color: #FFA500; margin-top: 8px;"><em>*Effects stack! Multiple infections = worse penalties!</em></p>
+        </div>
+        <div class="section">
+          <h4>💚 HEALING SYSTEM</h4>
+          <ul>
+            <li><strong>Life Support Node:</strong> Stand on it to heal (+2 HP/sec when secure)</li>
+            <li><strong>Coolant Tiles:</strong> Heal with Rule [5] "COOLANT IS SAFE" active</li>
+            <li style="color: #FF4400;"><em>*Life Support infection blocks ALL healing!</em></li>
+          </ul>
+        </div>
+        <div class="section">
+          <h4>OBJECTIVE</h4>
+          <p>Capture and quarantine all 3 viruses while protecting at least 4 of 5 system nodes.</p>
+        </div>
+      </div>
+    </div>
+    <div style="text-align: center; margin-top: 20px;"><button onclick="toggleHelp()" style="padding: 10px 30px; background: #FF1493; color: #000; border: none; cursor: pointer;">CLOSE</button></div>
+  </div>
+
+  <!-- Debug Overlay -->
+  <div id="debugOverlay"></div>
+
+  <!-- ✅ NEW: MINI-MAP (RADAR) -->
+  <div id="radar-container">
+    <div id="radar-header">SECTOR RADAR</div>
+    <!-- This canvas is small internally but scaled up by CSS for a crisp "low-res" look -->
+    <canvas id="miniMapCanvas" width="130" height="90"></canvas>
+  </div>
+
+  <!-- Start Screen -->
+  <div id="startScreen">
+    <h1>NEURAL LINK</h1>
+    <p>Your neural implants have been infected by malicious code.</p>
+    <p>Navigate through your body's virtual system network and protect critical nodes from virus infection. Use rule manipulation to control the battlefield - but beware, viruses can manipulate certain rules too!</p>
+    <button id="startButton" onclick="startGame()">INITIALIZE</button>
+  </div>
+
+  <script>
+    /** NEURAL LINK - Cyberpunk Virus Defense Game */
+    // ============================================================================
+    // CONSTANTS & CONFIGURATION
+    // ============================================================================
+    const CANVAS_WIDTH = window.innerWidth;
+    const CANVAS_HEIGHT = window.innerHeight;
+    // ✅ UPDATED: New map is 64x56 (columns x rows) — MAP_SIZE controls both dimensions
+    const MAP_SIZE = 64; // Used as the safe upper bound constant, though array is 64 wide
+    const TILE_SIZE = 64;
+    const FOV = Math.PI / 3;
+    const RAY_COUNT = CANVAS_WIDTH / 4;
+    // ✅ UPDATED: Increased MAX_DEPTH for the larger map (was 20)
+    const MAX_DEPTH = 32;
+    const COLORS = {
+      BLACK: '#000000',
+      YELLOW: '#F9E644',
+      NEON_PINK: '#FF00FF',
+      CYAN: '#00FFFF',
+      MAGENTA: '#FF1493',
+      ELECTRIC_BLUE: '#0080FF',
+      LIME_GREEN: '#00FF00',
+      PURPLE: '#8B00FF',
+      RED: '#FF0000',
+      ORANGE: '#FFA500',
+      WHITE: '#FFFFFF',
+      CONTRAST_WALL: '#8C97CF',
+      DARK_PURPLE: '#595959'
+    };
+    // ============================================================================
+    // ✅ VIRUS DAMAGE CONFIGURATION (Centralized for easy tuning!)
+    // ============================================================================
+    const VIRUS_DAMAGE_CONFIG = {
+      DAMAGE_PER_HIT: 25,
+      PLAYER_COOLDOWN: 1.0,
+      HITBOX_RADIUS: TILE_SIZE / 8
+    };
+    // ============================================================================
+    // ✅ CAPTURE CONFIGURATION (MUST COME BEFORE RULES!)
+    // ============================================================================
+    const CAPTURE_CONFIG = {
+      COOLDOWN_BASE: 500 / 8,
+      COOLDOWN_NODE_BONUS: -30,
+      QUARANTINE_DURATION: 200 / 8,
+      HUNT_WARNING_DELAY: 5,
+      CAPTURE_RANGE: TILE_SIZE * 2.5,
+      INTERRUPT_DISTANCE: TILE_SIZE * 6
+    };
+    // ============================================================================
+    // ✅ INFECTION CLEANING CONFIGURATION (Easy to tune!)
+    // ============================================================================
+    const CLEANING_CONFIG = {
+      CLEANUP_TIME: 96 / 8,
+      MOVEMENT_INTERRUPT_DISTANCE: TILE_SIZE * 0.75,
+      VIRUS_INTERRUPT_DISTANCE: TILE_SIZE * 3
+    };
+    // ============================================================================
+    // ✅ INFECTION EFFECTS CONFIGURATION (Centralized for easy tuning!)
+    // ============================================================================
+    const INFECTION_EFFECTS_CONFIG = {
+      MOTOR_CONTROL_SPEED_MULTIPLIER: 0.5,
+      LIFE_SUPPORT_HEALTH_DRAIN_RATE: 0.0625,
+      EFFECTS_STACK: true
+    };
+    // ============================================================================
+    // ✅ HEALING CONFIGURATION (Life Support + Coolant)
+    // ============================================================================
+    const HEALING_CONFIG = {
+      LIFE_SUPPORT_HEAL_RATE: 2,
+      COOLANT_HEAL_RATE: 5
+    };
+    // ✅ NEW: VIRUS SLOW RULE CONFIGURATION
+    const VIRUS_SLOW_MOVEMENT_MULTIPLIER = 0.5;
+    const VIRUS_SLOW_DAMAGE_MULTIPLIER = 0.5;
+    // ============================================================================
+    // ✅ USER'S UPDATED RULE TIMINGS (~16x for deltaTime bug workaround!)
+    // ============================================================================
+    const RULES = [{
+        id: 1,
+        name: "FIREWALL IS WALL",
+        type: "TOGGLE",
+        cooldown: 48 / 8
+      },
+      {
+        id: 2,
+        name: "NODES ARE LOCKED",
+        type: "TOGGLE",
+        cooldown: 64 / 8
+      },
+      {
+        id: 3,
+        name: "VIRUS IS STOP",
+        type: "DURATION",
+        duration: 3.5,
+        cooldown: 52.5
+      },
+      {
+        id: 4,
+        name: "VIRUS IS SLOW",
+        type: "DURATION",
+        duration: 8,
+        cooldown: 320 / 8
+      },
+      {
+        id: 5,
+        name: "COOLANT IS SAFE",
+        type: "DURATION",
+        duration: 6,
+        cooldown: 192 / 8
+      }
+    ];
+    const TILE = {
+      EMPTY: 0,
+      WALL: 1,
+      FIREWALL: 2,
+      COOLANT: 3,
+      RULE_BLOCK: 4,
+      SYSTEM_NODE: 5,
+      ALTERNATE_WALL: 6,
+      TUTORIAL_WALL: 7,
+      CONTRAST_WALL: 8,
+    };
+    // ============================================================================
+    // GAME STATE MANAGEMENT (SINGLE DECLARATIONS ONLY!)
+    // ============================================================================
+    let canvas = document.getElementById('gameCanvas');
+    let ctx = canvas.getContext('2d', {
+      alpha: false
+    });
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
+    // ✅ NEW: Radar Canvas Setup
+    const radarCanvas = document.getElementById('miniMapCanvas');
+    const radarCtx = radarCanvas.getContext('2d', {
+      alpha: false
+    });
+    let lastTime = performance.now();
+    let deltaTime = 0;
+    let gameRunning = false;
+    let showHelp = false;
+    let showDebug = false;
+    let helpVisible = true;
+    let isPaused = false;
+    const levelMap = [
+      // Row Y=0 - Top Edge Boundary (all WALL)
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1],
+      // Row Y=1 - Top interior (Player spawn area, Node 3 nearby)
+      [1, 8, 7, 6, 8, 2, 0, 0, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 0, 7, 6, 8, 2, 0, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8],
+      // Row Y=2 - Upper corridor (Firewall choke points)
+      [1, 7, 6, 8, 2, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0],
+      // Row Y=3 - Node 3 cluster (Neural Link at tile X=2)
+      [1, 6, 8, 7, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=4 - Upper open area (Firewalls create strategic traps)
+      [1, 8, 7, 6, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=5 - Corridor junctions (Firewall placement)
+      [1, 7, 6, 8, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=6 - Open plaza (Node area)
+      [1, 6, 8, 7, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=7 - Mid-upper (Firewall intersections)
+      [1, 8, 7, 6, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=8 - Node 4 cluster (Life Support at center-right)
+      [1, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=9 - Upper mid (Firewall choke point)
+      [1, 6, 8, 7, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=10 - Mid corridor (strategic firewall placement)
+      [1, 8, 7, 6, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=11 - Node cluster (Node 3)
+      [1, 7, 6, 8, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=12 - Mid corridor (Firewall trap location)
+      [1, 6, 8, 7, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=13 - Open area (Node access routes)
+      [1, 8, 7, 6, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=14 - Mid-upper (Firewall intersections)
+      [1, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=15 - Corridor (Firewall trap zone)
+      [1, 6, 8, 7, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=16 - Node area (Node 2 cluster)
+      [1, 8, 7, 6, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=17 - Mid corridor (Firewall choke points)
+      [1, 7, 6, 8, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=18 - Open plaza (Strategic firewall placement)
+      [1, 6, 8, 7, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=19 - Node cluster (Node 4)
+      [1, 8, 7, 6, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=20 - Mid corridor (Firewall trap)
+      [1, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=21 - Node area (Node 4 cluster)
+      [1, 6, 8, 7, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=22 - Mid corridor (Firewall intersections)
+      [1, 8, 7, 6, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=23 - Node cluster (Node 3)
+      [1, 7, 6, 8, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=24 - Mid corridor (Firewall trap zone)
+      [1, 6, 8, 7, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=25 - Node cluster (Node 1)
+      [1, 8, 7, 6, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=26 - Mid corridor (Firewall choke points)
+      [1, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=27 - Mid corridor (Firewall trap)
+      [1, 6, 8, 7, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=28 - Mid corridor (Firewall intersections)
+      [1, 8, 7, 6, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=29 - Mid corridor (Firewall trap zone)
+      [1, 7, 6, 8, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=30 - Node cluster (Node 2 center)
+      [1, 6, 8, 7, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=31 - Mid corridor (Firewall choke)
+      [1, 8, 7, 6, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=32 - Mid corridor (Firewall trap)
+      [1, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=33 - Mid corridor (Firewall intersections)
+      [1, 6, 8, 7, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=34 - Mid corridor (Firewall trap zone)
+      [1, 8, 7, 6, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=35 - Mid corridor (Firewall choke points)
+      [1, 7, 6, 8, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=36 - Mid corridor (Firewall trap)
+      [1, 6, 8, 7, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=37 - Mid corridor (Firewall intersections)
+      [1, 8, 7, 6, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=38 - Mid corridor (Firewall trap zone)
+      [1, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=39 - Mid corridor (Firewall choke points)
+      [1, 6, 8, 7, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=40 - Mid corridor (Firewall trap)
+      [1, 8, 7, 6, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=41 - Mid corridor (Firewall intersections)
+      [1, 7, 6, 8, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=42 - Mid corridor (Firewall trap zone)
+      [1, 6, 8, 7, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=43 - Mid corridor (Firewall choke points)
+      [1, 8, 7, 6, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=44 - Mid corridor (Firewall trap)
+      [1, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=45 - Node cluster (Node 1)
+      [1, 6, 8, 7, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=46 - Mid corridor (Firewall intersections)
+      [1, 8, 7, 6, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=47 - Mid corridor (Firewall trap zone)
+      [1, 7, 6, 8, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=48 - Mid corridor (Firewall choke points)
+      [1, 6, 8, 7, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=49 - Mid corridor (Firewall trap)
+      [1, 8, 7, 6, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=50 - Mid corridor (Firewall intersections)
+      [1, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=51 - Mid corridor (Firewall trap zone)
+      [1, 6, 8, 7, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=52 - Mid corridor (Firewall choke points)
+      [1, 8, 7, 6, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=53 - Mid corridor (Firewall trap)
+      [1, 7, 6, 8, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=54 - Mid corridor (Firewall intersections)
+      [1, 6, 8, 7, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=55 - Node cluster (Node 4)
+      [1, 8, 7, 6, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=56 - Mid corridor (Firewall trap zone)
+      [1, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=57 - Mid corridor (Firewall choke points)
+      [1, 6, 8, 7, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=58 - Lower mid (Player spawn area)
+      [1, 8, 7, 6, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=59 - Lower mid (Player spawn corridor)
+      [1, 7, 6, 8, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=60 - Lower mid (Player spawn corridor)
+      [1, 6, 8, 7, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=61 - Lower mid (Player spawn corridor)
+      [1, 8, 7, 6, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5],
+      // Row Y=62 - Lower interior corridor (Player spawn area)
+      [1, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0, 5, 5, 0, 7, 6, 8, 2, 0],
+      // Row Y=63 - Bottom Edge Boundary (all WALL)
+      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1]
+    ];
+    // ============================================================================
+    // ✅ ENTITY POSITIONS - UPDATED FOR NEW 64x56 CORRIDOR MAZE MAP
+    // All positions use (tile + 0.5) * TILE_SIZE format for centering
+    // Map is now: columns=64, rows=56 (approximate)
+    // ============================================================================
+    let player = {
+      // ✅ UPDATED: Spawn in open corridor near top-left Neural Link node area
+      x: 7.5 * TILE_SIZE,
+      y: 1.5 * TILE_SIZE,
+      angle: Math.PI / 2,
+      health: 100,
+      speed: 96,
+      turnSpeed: 0.8,
+      acquiredRules: [],
+      toggleStates: {},
+      durationTimers: {},
+      lastActivationTime: {},
+      speedMultiplier: 1.0,
+      carryingVirusId: null,
+      isQuarantining: false,
+      quarantineProgress: 0,
+      captureReadyTime: 0,
+      huntModeActive: false,
+      huntWarningTimer: 0,
+      lastDamageTime: Date.now() / 1000,
+      // ✅ NEW: Infection Cleaning State
+      isCleaningNode: false,
+      cleaningTargetNodeId: null,
+      cleaningProgress: 0,
+      cleaningStartPosition: {
+        x: 0,
+        y: 0
+      },
+      // ✅ NEW: Neural Link Toggle Delay System
+      pendingToggleRules: {},
+      toggleDelayTimers: {}
+    };
+    let viruses = [{
+        id: 0,
+        // ✅ UPDATED: Spawn in left corridor near top-left area (tile 8.5, 1.5)
+        x: 8.5 * TILE_SIZE,
+        y: 1.5 * TILE_SIZE,
+        speed: 64,
+        activationCooldowns: {},
+        targetRuleId: null,
+        targetNodeId: null
+      },
+      {
+        id: 1,
+        // ✅ UPDATED: Spawn in central open area (tile 30.5, 9.5) - row 9 is a long corridor
+        x: 30.5 * TILE_SIZE,
+        y: 9.5 * TILE_SIZE,
+        speed: 64,
+        activationCooldowns: {},
+        targetRuleId: null,
+        targetNodeId: null
+      },
+      {
+        id: 2,
+        // ✅ UPDATED: Spawn in upper-right corridor (tile 45.5, 3.5) - near Visual Processor area
+        x: 45.5 * TILE_SIZE,
+        y: 3.5 * TILE_SIZE,
+        speed: 64,
+        activationCooldowns: {},
+        targetRuleId: null,
+        targetNodeId: null
+      }
+    ];
+    let systemNodes = [{
+        id: 0,
+        name: "Motor Control",
+        // ✅ UPDATED: Bottom-left node cluster (rows 53-54, cols 1-2) → center at tile (2.5, 53.5)
+        x: 2.5 * TILE_SIZE,
+        y: 53.5 * TILE_SIZE,
+        infected: false,
+        color: COLORS.NEON_PINK,
+        effectName: "MOTOR FAILURE"
+      },
+      {
+        id: 1,
+        name: "Visual Processor",
+        // ✅ UPDATED: Top-right node cluster (rows 53-54, cols 61-62) → center at tile (61.5, 53.5)
+        x: 61.5 * TILE_SIZE,
+        y: 53.5 * TILE_SIZE,
+        infected: false,
+        color: COLORS.CYAN,
+        effectName: "VISUAL DISTORTION"
+      },
+      {
+        id: 2,
+        name: "Auditory Processing",
+        // ✅ UPDATED: Center node cluster (rows 29-30, cols 31-33) → center at tile (32.5, 29.5)
+        x: 32.5 * TILE_SIZE,
+        y: 29.5 * TILE_SIZE,
+        infected: false,
+        color: COLORS.PURPLE,
+        effectName: "AUDIO STATIC"
+      },
+      {
+        id: 3,
+        name: "Neural Link",
+        // ✅ UPDATED: Top-left node cluster (rows 1-2, cols 1-2) → center at tile (2.5, 1.5)
+        x: 2.5 * TILE_SIZE,
+        y: 1.5 * TILE_SIZE,
+        infected: false,
+        color: COLORS.LIME_GREEN,
+        effectName: "COGNITIVE DELAY"
+      },
+      {
+        id: 4,
+        name: "Life Support",
+        // ✅ UPDATED: Upper-middle node cluster (rows 1-2, cols 58-59) → center at tile (59.5, 1.5)
+        x: 59.5 * TILE_SIZE,
+        y: 1.5 * TILE_SIZE,
+        infected: false,
+        color: COLORS.ELECTRIC_BLUE,
+        effectName: "CRITICAL FAILURE"
+      }
+    ];
+    let ruleBlocks = [{
+        id: 1,
+        // ✅ UPDATED: Near top-left area (row 10, col 3) - accessible from spawn corridor
+        x: 3.5 * TILE_SIZE,
+        y: 10.5 * TILE_SIZE,
+        acquiredByPlayer: true
+      },
+      {
+        id: 2,
+        // ✅ UPDATED: Near top-left area (row 11, col 3) - adjacent to Rule Block 1
+        x: 3.5 * TILE_SIZE,
+        y: 11.5 * TILE_SIZE,
+        acquiredByPlayer: true
+      },
+      {
+        id: 3,
+        // ✅ UPDATED: Central area (row 30, col 61) - near the bottom-right section
+        x: 61.5 * TILE_SIZE,
+        y: 30.5 * TILE_SIZE,
+        acquiredByPlayer: true
+      },
+      {
+        id: 4,
+        // ✅ UPDATED: Lower-middle area (row 38, col 2) - coolant tile location
+        x: 2.5 * TILE_SIZE,
+        y: 38.5 * TILE_SIZE,
+        acquiredByPlayer: true
+      },
+      {
+        id: 5,
+        // ✅ UPDATED: Bottom-left area (row 47, col 61) - near bottom-right section
+        x: 61.5 * TILE_SIZE,
+        y: 47.5 * TILE_SIZE,
+        acquiredByPlayer: true
+      }
+    ];
+    const keys = {};
+    // ============================================================================
+    // FLOOR RENDERING - OPTIMIZED VAPORWAVE GRID (FIXED!)
+    // ============================================================================
+    function renderVaporwaveFloor() {
+      const w = CANVAS_WIDTH;
+      const h = CANVAS_HEIGHT;
+      const halfH = Math.floor(h / 2);
+      const gradient = ctx.createLinearGradient(0, halfH, 0, h);
+      gradient.addColorStop(0, '#1a052e');
+      gradient.addColorStop(0.3, '#2d004f');
+      gradient.addColorStop(0.7, '#4d006e');
+      gradient.addColorStop(1, '#6b098a');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, halfH, w, h - halfH);
+      const currentTileX = Math.floor(player.x / TILE_SIZE);
+      const currentTileZ = Math.floor(player.y / TILE_SIZE);
+      for (let offset = 0; offset < MAX_DEPTH * 2; offset++) {
+        const targetTileZ = currentTileZ + offset;
+        if (targetTileZ < 1 || targetTileZ >= levelMap.length) continue;
+        const zToLine = (targetTileZ * TILE_SIZE) - player.y;
+        if (zToLine <= 0.5 || zToLine > MAX_DEPTH * TILE_SIZE) continue;
+        const cameraHeight = TILE_SIZE * 0.75;
+        const screenY = halfH + (cameraHeight / zToLine) * (h / 2);
+        if (screenY < halfH || screenY > h) continue;
+        ctx.strokeStyle = '#FF1493';
+        ctx.lineWidth = 2;
+        const alpha = Math.max(0.2, 1 - offset / (MAX_DEPTH * 2));
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.moveTo(0, screenY);
+        ctx.lineTo(w, screenY);
+        ctx.stroke();
+      }
+      for (let offsetX = -12; offsetX <= 12; offsetX++) {
+        if (offsetX === 0) continue;
+        const targetTileX = currentTileX + offsetX;
+        if (targetTileX < 1 || targetTileX >= levelMap[0].length) continue;
+        ctx.strokeStyle = '#00FFFF';
+        ctx.lineWidth = 2;
+        const alpha = Math.max(0.15, 1 - Math.abs(offsetX) / 14);
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        const centerX = w / 2;
+        const spreadNear = offsetX * (w / 6);
+        const spreadFar = offsetX * 8;
+        ctx.moveTo(centerX + spreadFar, halfH);
+        ctx.lineTo(centerX + spreadNear, h);
+        ctx.stroke();
+      }
+      const time = Date.now() / 1000;
+      const pulse = Math.sin(time * 2) * 0.1 + 0.9;
+      ctx.strokeStyle = '#FF00FF';
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.3 * pulse;
+      for (let i = -2; i <= 2; i++) {
+        const centerX = w / 2 + i * 50;
+        ctx.beginPath();
+        ctx.moveTo(centerX, halfH);
+        ctx.lineTo(centerX + i * 100, h);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+     // ============================================================================
+    // INITIALIZATION & GAME LOOP
+    // ============================================================================
+    function startGame() {
+        document.getElementById('startScreen').style.display = 'none';
+        
+        RULES.forEach(rule => {
+            player.toggleStates[rule.id] = false;
+            player.durationTimers[rule.id] = 0;
+            player.lastActivationTime[rule.id] = 0;
+        });
+
+        // ✅ Start with firewalls ON and a cooldown
+        player.toggleStates[1] = true;
+        player.toggleStates['cooldown_1'] = 5; // 5-second initial cooldown
+        
+        // All rules are initially acquired by player
+        player.acquiredRules = RULES.map(rule => rule.id);
+        
+        player.lastDamageTime = Date.now() / 1000;
+        player.carryingVirusId = null;
+        player.isQuarantining = false;
+        player.quarantineProgress = 0;
+        player.captureReadyTime = 0;
+        player.huntModeActive = false;
+        player.huntWarningTimer = 0;
+
+        // Initialize cleaning state
+        player.isCleaningNode = false;
+        player.cleaningTargetNodeId = null;
+        player.cleaningProgress = 0;
+        player.cleaningStartPosition = { x: 0, y: 0 };
+        
+        gameRunning = true;
+        lastTime = performance.now();
+
+        setTimeout(() => {
+            if (helpVisible) {
+                toggleHelp();
+                helpVisible = false;
+            }
+        }, 500);
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    function gameLoop(currentTime) {
+      if (!gameRunning || isPaused) return;
+
+
+      // All rules are initially acquired by player
+      player.acquiredRules = RULES.map(rule => rule.id);
+      player.lastDamageTime = Date.now() / 1000;
+      player.carryingVirusId = null;
+      player.isQuarantining = false;
+      player.quarantineProgress = 0;
+      player.captureReadyTime = 0;
+      player.huntModeActive = false;
+      player.huntWarningTimer = 0;
+      // ✅ NEW: Initialize cleaning state
+      player.isCleaningNode = false;
+      player.cleaningTargetNodeId = null;
+      player.cleaningProgress = 0;
+      player.cleaningStartPosition = {
+        x: 0,
+        y: 0
+      };
+      gameRunning = true;
+      lastTime = performance.now(); // Initialize lastTime on game start
+      setTimeout(() => {
+        if (helpVisible) {
+          toggleHelp();
+          helpVisible = false;
+        }
+      }, 500);
+      requestAnimationFrame(gameLoop);
+    }
+
+    function gameLoop(currentTime) {
+      if (!gameRunning || isPaused) return;
+      deltaTime = (currentTime - lastTime) / 1000;
+      if (deltaTime > 0.1) deltaTime = 0.1; // Cap deltaTime to prevent "teleporting"
+      update(deltaTime);
+      render();
+      lastTime = currentTime; // ✅ FIX: Update lastTime for correct deltaTime calculation
+      requestAnimationFrame(gameLoop);
+    }
+    // ============================================================================
+    // UPDATE LOGIC
+    // ============================================================================
+    function update(dt) {
+      // 1. Reset player state for the current frame
+      player.speedMultiplier = 1.0; // Reset base speed multiplier
+      // 2. Apply rule effects (may modify speedMultiplier or immunity)
+      updateRules(dt); // Calls applyRuleEffects internally.
+      // 3. Apply node infection effects (may further modify speedMultiplier or drain health)
+      applyNodeInfectionEffects(dt);
+      handleInput(dt); // Moved after speedMultiplier calculation is finalized
+      checkRuleAcquisition();
+      updateVirusAI(dt);
+      checkCaptureCooldownReduction();
+      updateHuntMode(dt);
+      updateQuarantineSequence(dt);
+      // ✅ NEW: Update infection cleaning system
+      updateInfectionCleaning(dt);
+      // ✅ NEW: Check for healing (Life Support + Coolant)
+      checkHealingSources(dt);
+      checkWinLoseConditions();
+      updateHUD();
+    }
+    // ============================================================================
+    // ✅ PLAYER DAMAGE COOLDOWN SYSTEM
+    // ============================================================================
+    /**
+     * Attempts to deal damage to the player, respecting cooldowns and active rules.
+     * @param {object} attackingVirus The virus object that is attempting to deal damage.
+     * @returns {boolean} True if damage was dealt, false otherwise.
+     */
+    function tryDealPlayerDamage(attackingVirus) {
+      const currentTime = Date.now() / 1000;
+      // Check Rule 3: VIRUS IS STOP
+      if (attackingVirus.stopped) {
+        console.log(`Virus ${attackingVirus.id} is stopped, damage prevented.`);
+        return false;
+      }
+      // Player damage cooldown
+      const timeSinceLastDamage = currentTime - player.lastDamageTime;
+      if (timeSinceLastDamage < VIRUS_DAMAGE_CONFIG.PLAYER_COOLDOWN) {
+        return false; // Still on player damage cooldown
+      }
+      let damageToDeal = VIRUS_DAMAGE_CONFIG.DAMAGE_PER_HIT;
+      // Check Rule 4: VIRUS IS SLOW - reduces damage rate
+      if (attackingVirus.slowed) {
+        damageToDeal *= VIRUS_SLOW_DAMAGE_MULTIPLIER;
+        console.log(`Virus ${attackingVirus.id} is slowed, damage reduced to ${damageToDeal.toFixed(2)}.`);
+      }
+      if (player.health > 0) {
+        player.health -= damageToDeal;
+        player.lastDamageTime = currentTime;
+        console.log(`Player takes ${damageToDeal.toFixed(2)} damage! Current health: ${player.health.toFixed(1)}`);
+        return true;
+      }
+      return false;
+    }
+    // ============================================================================
+    // ✅ NEW: INFECTION CLEANING SYSTEM
+    // ============================================================================
+    /** Check if player is standing on an infected, cleanable node */
+    function checkStartCleaning() {
+      // Cannot start cleaning if already quarantining or carrying virus
+      if (player.isQuarantining || player.carryingVirusId !== null) return;
+      const playerTileX = Math.floor(player.x / TILE_SIZE);
+      const playerTileY = Math.floor(player.y / TILE_SIZE);
+      // Find infected node at player position
+      let targetNode = null;
+      for (const node of systemNodes) {
+        // Node [2] (NODES ARE LOCKED) prevents interaction
+        if (!node.infected || (player.toggleStates[2] === true)) continue; // Skip non-infected or locked nodes
+        const nodeTileX = Math.floor(node.x / TILE_SIZE);
+        const nodeTileY = Math.floor(node.y / TILE_SIZE);
+        if (playerTileX === nodeTileX && playerTileY === nodeTileY) {
+          targetNode = node;
+          break;
+        }
+      }
+      // Start cleaning if found a valid target and not already cleaning
+      if (targetNode && !player.isCleaningNode) {
+        player.isCleaningNode = true;
+        player.cleaningTargetNodeId = targetNode.id;
+        player.cleaningProgress = 0;
+        player.cleaningStartPosition = {
+          x: player.x,
+          y: player.y
+        };
+        console.log(`🧹 Started cleaning ${targetNode.name}! Hold still for ~8s.`);
+      }
+    }
+    /** Update the infection cleaning progress */
+    function updateInfectionCleaning(dt) {
+      if (!player.isCleaningNode) {
+        // Check if player should start cleaning
+        checkStartCleaning();
+        return;
+      }
+      const targetNode = systemNodes.find(n => n.id === player.cleaningTargetNodeId);
+      if (!targetNode || !targetNode.infected || (player.toggleStates[2] === true)) {
+        // Node no longer valid (got cleaned by something else or locked), cancel cleaning
+        cancelInfectionCleaning("Invalid target");
+        return;
+      }
+      const interruptDistance = CLEANING_CONFIG.MOVEMENT_INTERRUPT_DISTANCE;
+      let interrupted = false;
+      let reason = "";
+      // Check 1: Player moved too far from starting position
+      const distMoved = Math.hypot(player.x - player.cleaningStartPosition.x,
+        player.y - player.cleaningStartPosition.y);
+      if (distMoved > interruptDistance) {
+        interrupted = true;
+        reason = "Movement";
+      }
+      // Check 2: Virus too close (creates tactical tension!)
+      for (const virus of viruses) {
+        const distToVirus = Math.hypot(player.x - virus.x, player.y - virus.y);
+        if (distToVirus < CLEANING_CONFIG.VIRUS_INTERRUPT_DISTANCE) {
+          interrupted = true;
+          reason = `Virus #${virus.id + 1} proximity`;
+          break;
+        }
+      }
+      // Check 3: Player carrying virus or quarantining
+      if (player.carryingVirusId !== null || player.isQuarantining) {
+        interrupted = true;
+        reason = "Player busy";
+      }
+      if (interrupted) {
+        cancelInfectionCleaning(reason);
+        return;
+      }
+      // Progress cleaning!
+      player.cleaningProgress += dt * 100 / CLEANING_CONFIG.CLEANUP_TIME;
+      if (player.cleaningProgress >= 100) {
+        completeNodeCleaning(targetNode);
+      }
+    }
+    /** Cancel the current infection cleaning */
+    function cancelInfectionCleaning(reason = "Cancelled") {
+      const targetNode = systemNodes.find(n => n.id === player.cleaningTargetNodeId);
+      const progressPct = Math.floor(player.cleaningProgress);
+      console.log(`❌ Cleaning ${targetNode?.name || 'node'} interrupted: ${reason} (${progressPct}% complete)`);
+      player.isCleaningNode = false;
+      player.cleaningTargetNodeId = null;
+      player.cleaningProgress = 0;
+    }
+    /** Complete the infection cleaning on a node */
+    function completeNodeCleaning(node) {
+      console.log(`✅ Successfully cleaned ${node.name}! Node is now secure.`);
+      // Clean the infection!
+      node.infected = false;
+      // Reset cleaning state
+      player.isCleaningNode = false;
+      player.cleaningTargetNodeId = null;
+      player.cleaningProgress = 0;
+      triggerGlitchEffect();
+    }
+    // ============================================================================
+    // ✅ NEW: INFECTION EFFECTS SYSTEM (ALL NODES!)
+    // ============================================================================
+    /** Apply infection effects from all infected nodes */
+    function applyNodeInfectionEffects(dt) {
+      let motorControlInfected = false;
+      let visualProcessorInfected = false;
+      let auditoryProcessingInfected = false;
+      let neuralLinkInfected = false;
+      let lifeSupportInfected = false;
+      let activeEffectCount = 0;
+      systemNodes.forEach(node => {
+        // ✅ KEY: Locked nodes (Rule 2) don't apply effects even if infected!
+        if (!node.infected || (player.toggleStates[2] === true)) return;
+        switch (node.id) {
+          case 0:
+            motorControlInfected = true;
+            activeEffectCount++;
+            break; // Motor Control
+          case 1:
+            visualProcessorInfected = true;
+            activeEffectCount++;
+            break; // Visual Processor
+          case 2:
+            auditoryProcessingInfected = true;
+            activeEffectCount++;
+            break; // Auditory Processing
+          case 3:
+            neuralLinkInfected = true;
+            activeEffectCount++;
+            break; // Neural Link
+          case 4:
+            lifeSupportInfected = true;
+            activeEffectCount++;
+            break; // Life Support
+        }
+      });
+      // Store infection states for use in other functions
+      player.infectionStates = {
+        motorControl: motorControlInfected,
+        visualProcessor: visualProcessorInfected,
+        auditoryProcessing: auditoryProcessingInfected,
+        neuralLink: neuralLinkInfected,
+        lifeSupport: lifeSupportInfected
+      };
+      // Apply Motor Control effect (50% speed reduction)
+      if (motorControlInfected) {
+        player.speedMultiplier *= INFECTION_EFFECTS_CONFIG.MOTOR_CONTROL_SPEED_MULTIPLIER;
+      }
+      // Apply Life Support effect (health drain over time)
+      if (lifeSupportInfected) {
+        const healthDrain = INFECTION_EFFECTS_CONFIG.LIFE_SUPPORT_HEALTH_DRAIN_RATE * dt;
+        player.health -= healthDrain;
+        // Prevent negative health (death handled by win/lose check)
+        if (player.health < 0) player.health = 0;
+      }
+      // Store active effect count for HUD display
+      player.activeInfectionEffects = activeEffectCount;
+    }
+    /** Get list of currently active infection effects for HUD */
+    function getActiveInfectionEffects() {
+      const activeEffects = [];
+      systemNodes.forEach(node => {
+        // Check Rule 2 (NODES ARE LOCKED) to see if effects are blocked
+        if (node.infected && (player.toggleStates[2] !== true) && node.effectName) {
+          let severity = "WARNING";
+          let isCritical = false;
+          // Motor Control + Life Support together = critical!
+          if (player.activeInfectionEffects >= 2) {
+            severity = "CRITICAL";
+            isCritical = true;
+          }
+          activeEffects.push({
+            node: node,
+            effectName: node.effectName,
+            severity: severity,
+            isCritical: isCritical
+          });
+        }
+      });
+      return activeEffects;
+    }
+    // ============================================================================
+    // ✅ NEW: HEALING SYSTEM (Life Support + Coolant)
+    // ============================================================================
+    /** Check for healing sources and apply healing */
+    function checkHealingSources(dt) {
+      const lifeSupportNode = systemNodes.find(n => n.id === 4);
+      const playerTileX = Math.floor(player.x / TILE_SIZE);
+      const playerTileY = Math.floor(player.y / TILE_SIZE);
+      // ✅ Life Support infection (Node 4) blocks ALL healing!
+      if (lifeSupportNode && lifeSupportNode.infected && (player.toggleStates[2] !== true)) {
+        return;
+      }
+      // ✅ LIFE SUPPORT HEALING: Stand on Life Support tile to heal!
+      if (lifeSupportNode && !lifeSupportNode.infected && (player.toggleStates[2] !== true)) {
+        const nodeTileX = Math.floor(lifeSupportNode.x / TILE_SIZE);
+        const nodeTileY = Math.floor(lifeSupportNode.y / TILE_SIZE);
+        // Check if player is standing on Life Support tile
+        if (playerTileX === nodeTileX && playerTileY === nodeTileY) {
+          if (player.health < 100) {
+            const healAmount = HEALING_CONFIG.LIFE_SUPPORT_HEAL_RATE * dt;
+            player.health = Math.min(100, player.health + healAmount);
+          }
+        }
+      }
+      // ✅ COOLANT HEALING: Only works with Rule [5] active! (formerly Rule 6)
+      if (playerTileX >= 0 && playerTileX < levelMap[0].length && playerTileY >= 0 && playerTileY < levelMap.length) {
+        const tileType = levelMap[playerTileY][playerTileX];
+        if (tileType === TILE.COOLANT && player.health < 100) {
+          // Check Rule [5] "COOLANT IS SAFE" is active
+          const coolantRuleActive = player.durationTimers[5] > 0;
+          if (coolantRuleActive) {
+            player.health = Math.min(100, player.health + HEALING_CONFIG.COOLANT_HEAL_RATE * dt);
+          }
+        }
+      }
+    }
+    // ============================================================================
+    // CAPTURE COOLDOWN REDUCTION
+    // ============================================================================
+    function checkCaptureCooldownReduction() {
+      if (player.captureReadyTime <= 0) return;
+      const tileX = Math.floor(player.x / TILE_SIZE),
+        tileY = Math.floor(player.y / TILE_SIZE);
+      if (tileX >= 0 && tileX < levelMap[0].length && tileY >= 0 && tileY < levelMap.length) {
+        const tileType = levelMap[tileY][tileX];
+        if (tileType === TILE.SYSTEM_NODE) {
+          player.captureReadyTime -= 0.1;
+          if (player.captureReadyTime < 0) {
+            player.captureReadyTime = 0;
+          }
+        }
+      }
+    }
+    // ============================================================================
+    // RULES SYSTEM - ✅ WITH NEURAL LINK DELAY!
+    // ============================================================================
+    function updateRules(dt) {
+      RULES.forEach(rule => {
+        const timer = player.durationTimers[rule.id];
+        if (rule.type === "DURATION") {
+          if (timer > 0) {
+            player.durationTimers[rule.id] -= dt;
+            if (player.durationTimers[rule.id] <= 0) player.durationTimers[rule.id] = -rule.cooldown;
+          } else if (timer < 0 && timer > -1) {
+            player.durationTimers[rule.id] += dt;
+            if (player.durationTimers[rule.id] >= 0) player.durationTimers[rule.id] = 0;
+          }
+        } else if (rule.type === "TOGGLE") {
+          const cdTimer = player.toggleStates[`cooldown_${rule.id}`];
+          if (cdTimer > 0) {
+            player.toggleStates[`cooldown_${rule.id}`] -= dt;
+            if (player.toggleStates[`cooldown_${rule.id}`] <= 0) delete player.toggleStates[`cooldown_${rule.id}`];
+          }
+          // ✅ NEW: Process Neural Link toggle delay timers!
+          if (player.pendingToggleRules[rule.id] !== undefined && rule.id in player.toggleDelayTimers) {
+            player.toggleDelayTimers[rule.id] -= dt;
+            // Delay complete - actually activate the rule now!
+            if (player.toggleDelayTimers[rule.id] <= 0) {
+              const desiredState = player.pendingToggleRules[rule.id];
+              player.toggleStates[rule.id] = desiredState;
+              delete player.pendingToggleRules[rule.id];
+              delete player.toggleDelayTimers[rule.id];
+              console.log(`⏱️ Rule [${rule.id}] "${rule.name}" activated after delay!`);
+              triggerGlitchEffect();
+            }
+          }
+        }
+      });
+      applyRuleEffects();
+    }
+
+    function activateRule(ruleId, activator = 'player') {
+      const rule = RULES.find(r => r.id === ruleId);
+      if (!rule) return false;
+      let canUse = true;
+      if (activator === 'virus') {
+        // Viruses should not directly activate duration rules for their benefit
+        if (rule.type === "DURATION") {
+          return false;
+        }
+        // For toggle rules, check virus-specific cooldown
+        if ((viruses[0].activationCooldowns[ruleId] || 0) > 0) canUse = false;
+      } else { // Activator is player
+        // Check if rule is in pending state (Neural Link delay active)
+        if (player.pendingToggleRules[ruleId] !== undefined && rule.type === "TOGGLE") {
+          console.log(`⏱️ Rule [${ruleId}] already pending activation due to Neural Link infection!`);
+          return false;
+        }
+        // Check player-specific cooldowns
+        if (rule.type === "TOGGLE" && player.toggleStates[`cooldown_${rule.id}`] && player.toggleStates[`cooldown_${rule.id}`] > 0) canUse = false;
+        else if (rule.type === "DURATION" && player.durationTimers[rule.id] !== 0) canUse = false;
+      }
+      if (!canUse) return false;
+      // ✅ NEW: Neural Link infection causes toggle delay!
+      const neuralLinkInfected = systemNodes.find(n => n.id === 3 && n.infected && (player.toggleStates[2] !== true));
+      if (rule.type === "TOGGLE" && activator === 'player' && neuralLinkInfected) {
+        // Set pending state instead of immediate activation!
+        const desiredState = !player.toggleStates[rule.id];
+        player.pendingToggleRules[rule.id] = desiredState;
+        player.toggleDelayTimers[rule.id] = 2.5 / 8; // Adjusted: 1/8th of 2.5
+        console.log(`⏱️ Rule [${rule.id}] "${rule.name}" queued for activation (Neural Link delay: ${player.toggleDelayTimers[rule.id].toFixed(2)}s)`);
+      } else if (rule.type === "TOGGLE") {
+        player.toggleStates[rule.id] = !player.toggleStates[rule.id];
+        player.toggleStates[`cooldown_${rule.id}`] = rule.cooldown;
+        if (activator === 'virus') { // Set cooldown for viruses as well if they activate it
+          viruses.forEach(v => v.activationCooldowns[ruleId] = rule.cooldown);
+        }
+        triggerGlitchEffect();
+      } else if (rule.type === "DURATION") {
+        player.durationTimers[rule.id] = rule.duration;
+        // Player-specific activation time for HUD
+        player.lastActivationTime[ruleId] = Date.now();
+        triggerGlitchEffect();
+      }
+      return true;
+    }
+
+    function applyRuleEffects() {
+      RULES.forEach(rule => {
+        const isActive = rule.type === "TOGGLE" ? player.toggleStates[rule.id] : (player.durationTimers[rule.id] > 0);
+        // Reset virus specific effects each frame, they will be reapplied if rule is active
+        viruses.forEach(virus => {
+          virus.stopped = false;
+          virus.slowed = false;
+        });
+        if (!isActive) return;
+        switch (rule.id) {
+          case 1:
+            // FIREWALL IS WALL: Handled in checkCollision
+            break;
+          case 2:
+            // NODES ARE LOCKED: Handled in applyNodeInfectionEffects and checkStartCleaning
+            break;
+          case 3:
+            // VIRUS IS STOP
+            viruses.forEach(virus => virus.stopped = true);
+            checkPlayerNearStoppedViruses(); // Apply speed penalty to player near stopped viruses
+            break;
+          case 4:
+            // VIRUS IS SLOW
+            viruses.forEach(virus => virus.slowed = true);
+            break;
+          case 5:
+            // COOLANT IS SAFE: Handled in checkHealingSources
+            break;
+        }
+      });
+    }
+
+    function checkPlayerNearStoppedViruses() {
+      let nearVirus = false;
+      const isVirusStopActive = player.durationTimers[3] > 0;
+      if (isVirusStopActive) {
+        viruses.forEach(virus => {
+          if (virus.stopped) { // Only check distance to actually stopped viruses
+            const dist = Math.hypot(player.x - virus.x, player.y - virus.y);
+            if (dist < TILE_SIZE * 3) nearVirus = true;
+          }
+        });
+        if (nearVirus) {
+          player.speedMultiplier *= 0.6; // Further reduction
+        }
+      }
+    }
+    // ============================================================================
+    // VIRUS CAPTURE SYSTEM
+    // ============================================================================
+    function attemptCapture() {
+      if (player.carryingVirusId !== null) {
+        console.log("Already carrying a virus! Quarantine it first.");
+        return false;
+      }
+      const currentTime = Date.now() / 1000;
+      if (currentTime < player.captureReadyTime) {
+        console.log(`Capture on cooldown: ${Math.ceil(player.captureReadyTime - currentTime)}s`);
+        return false;
+      }
+      let targetVirus = null,
+        minDist = Infinity;
+      viruses.forEach(virus => {
+        const dist = Math.hypot(player.x - virus.x, player.y - virus.y);
+        if (dist < CAPTURE_CONFIG.CAPTURE_RANGE && dist < minDist) {
+          minDist = dist;
+          targetVirus = virus;
+        }
+      });
+      if (!targetVirus) {
+        console.log("No virus nearby to capture!");
+        return false;
+      }
+      player.carryingVirusId = targetVirus.id;
+      player.captureReadyTime = currentTime + CAPTURE_CONFIG.COOLDOWN_BASE;
+      viruses = viruses.filter(v => v.id !== targetVirus.id);
+      console.log(`✅ Captured Virus #${targetVirus.id}!`);
+      startHuntModeWarning();
+      triggerGlitchEffect();
+      return true;
+    }
+
+    function completeQuarantine() {
+      if (player.carryingVirusId === null) return false;
+      console.log(`✅ Quarantined Virus #${player.carryingVirusId}!`);
+      player.carryingVirusId = null;
+      player.isQuarantining = false;
+      player.quarantineProgress = 0;
+      player.huntWarningTimer = 0;
+      triggerGlitchEffect();
+      checkWinLoseConditions();
+      return true;
+    }
+    // ============================================================================
+    // HUNT MODE SYSTEM
+    // ============================================================================
+    function startHuntModeWarning() {
+      player.huntWarningTimer = CAPTURE_CONFIG.HUNT_WARNING_DELAY;
+      console.log(`⚠️ Viruses will hunt in ${CAPTURE_CONFIG.HUNT_WARNING_DELAY}s!`);
+    }
+
+    function updateHuntMode(dt) {
+      if (player.huntWarningTimer > 0 && !player.isQuarantining) {
+        player.huntWarningTimer -= dt;
+        if (player.huntWarningTimer <= 0) {
+          player.huntModeActive = true;
+          console.log("🔥 HUNT MODE ACTIVATED - Viruses are coming!");
+        }
+      }
+      // If there are no viruses left and player is not carrying/quarantining, then hunt mode is truly over.
+      if (viruses.length === 0 && player.carryingVirusId === null && !player.isQuarantining) {
+        player.huntModeActive = false;
+        player.huntWarningTimer = 0;
+      }
+    }
+    // ============================================================================
+    // QUARANTINE SEQUENCE SYSTEM
+    // ============================================================================
+    function attemptQuarantine() {
+      if (player.carryingVirusId === null) {
+        console.log("No virus captured! Capture one first.");
+        return false;
+      }
+      if (player.isQuarantining) {
+        console.log("Already in quarantine sequence!");
+        return false;
+      }
+      player.isQuarantining = true;
+      player.quarantineProgress = 0;
+      player.huntModeActive = false;
+      player.huntWarningTimer = 0;
+      console.log("🔒 Quarantine sequence started! Do not move!");
+      triggerGlitchEffect();
+      return true;
+    }
+
+    function updateQuarantineSequence(dt) {
+      if (!player.isQuarantining) return;
+      const interruptDistance = CAPTURE_CONFIG.INTERRUPT_DISTANCE;
+      let interrupted = false;
+      viruses.forEach(virus => {
+        const distToPlayer = Math.hypot(player.x - virus.x, player.y - virus.y);
+        if (distToPlayer < interruptDistance) {
+          console.log(`⚠️ Quarantine interrupted by Virus #${virus.id}!`);
+          interrupted = true;
+        }
+      });
+      if (interrupted) {
+        player.isQuarantining = false;
+        player.quarantineProgress = 0;
+        console.log("❌ Quarantine failed! Viruses got too close.");
+        return;
+      }
+      player.quarantineProgress += dt * 100 / CAPTURE_CONFIG.QUARANTINE_DURATION;
+      if (player.quarantineProgress >= 100) completeQuarantine();
+    }
+    // ============================================================================
+    // PLAYER INPUT AND MOVEMENT - ✅ FIXED Q KEY CONFLICT HERE!
+    // ============================================================================
+    function handleInput(dt) {
+      const moveSpeed = player.speed * (player.speedMultiplier || 1.0) * dt;
+      let movingForwardDirection = 0;
+      let strafeDirection = 0;
+      let turnLeft = false;
+      let turnRight = false;
+      if (keys['w'] === true || keys['W'] === true || keys['ArrowUp'] === true) {
+        movingForwardDirection = 1;
+      } else if (keys['s'] === true || keys['S'] === true || keys['ArrowDown'] === true) {
+        movingForwardDirection = -1;
+      }
+      if (keys['a'] === true || keys['A'] === true) {
+        strafeDirection = -1;
+      } else if (keys['d'] === true || keys['D'] === true) {
+        strafeDirection = 1;
+      }
+      // ✅ FIXED: Only ArrowLeft triggers turn left!
+      if (keys['ArrowLeft'] === true || keys['q'] == true)turnLeft = true;
+      if (keys['e'] === true || keys['E'] === true || keys['ArrowRight'] === true) turnRight = true;
+      // Restrict forward/backward movement during quarantine or cleaning
+      if (player.isQuarantining || player.isCleaningNode) {
+        movingForwardDirection = 0;
+		strafeDirection = 0;
+      }
+      // Apply turning
+      if (turnLeft) player.angle -= player.turnSpeed * dt;
+      if (turnRight) player.angle += player.turnSpeed * dt;
+      let dx = 0;
+      let dy = 0;
+      // Calculate forward/backward movement
+      if (movingForwardDirection !== 0) {
+        const forwardX = Math.cos(player.angle);
+        const forwardY = Math.sin(player.angle);
+        dx += forwardX * moveSpeed * movingForwardDirection;
+        dy += forwardY * moveSpeed * movingForwardDirection;
+      }
+      // Calculate strafing movement
+      if (strafeDirection !== 0) {
+        const strafeX = Math.cos(player.angle + Math.PI / 2);
+        const strafeY = Math.sin(player.angle + Math.PI / 2);
+        dx += strafeX * moveSpeed * strafeDirection;
+        dy += strafeY * moveSpeed * strafeDirection;
+      }
+      // Move player if there's any calculated movement
+      if (dx !== 0 || dy !== 0) {
+        movePlayer(dx, dy);
+      }
+      // Handle rule activation keys (1-5 for player)
+      for (let i = 1; i <= RULES.length; i++) {
+        if (keys[String(i)] === true) {
+          activateRule(i, 'player');
+        }
+      }
+    }
+
+    function movePlayer(dx, dy) {
+      const newX = player.x + dx,
+        newY = player.y + dy;
+      if (!checkCollision(newX, player.y)) player.x = newX;
+      if (!checkCollision(player.x, newY)) player.y = newY;
+    }
+
+    function checkCollision(x, y) {
+      const tileX = Math.floor(x / TILE_SIZE),
+        tileY = Math.floor(y / TILE_SIZE);
+      if (tileX < 0 || tileX >= levelMap[0].length || tileY < 0 || tileY >= levelMap.length) return true;
+      const tileType = levelMap[tileY][tileX];
+      let isWall = false;
+      switch (tileType) {
+        case TILE.WALL:
+        case TILE.TUTORIAL_WALL:
+          isWall = true;
+          break;
+        case TILE.FIREWALL:
+          isWall = player.toggleStates[1]; // Rule 1: FIREWALL IS WALL
+          break;
+      }
+      return isWall;
+    }
+
+    function checkRuleAcquisition() {
+      // All rules are acquired from the start now, this function is mostly for future expansion
+    }
+    // ============================================================================
+    // VIRUS AI - ✅ FIXED: Now uses player-side damage cooldown & new rule logic!
+    // ============================================================================
+    function updateVirusAI(dt) {
+      viruses.forEach(virus => {
+        virus.stopped = false;
+        virus.slowed = false;
+        const effectiveSpeed = (virus.stopped ? 0 : (virus.slowed ? virus.speed * VIRUS_SLOW_MOVEMENT_MULTIPLIER : virus.speed)) * dt;
+        // HUNT MODE: Chase player aggressively
+        if (player.huntModeActive && !player.isQuarantining) {
+          const distToPlayer = Math.hypot(virus.x - player.x, virus.y - player.y);
+          if (distToPlayer < TILE_SIZE * 20) { // This is a large range, just for deciding to hunt
+            const huntEffectiveSpeed = effectiveSpeed * 1.75;
+            const dx = player.x - virus.x,
+              dy = player.y - virus.y,
+              distance = Math.hypot(dx, dy);
+            if (distance > 10) { // If distance > 10, virus moves
+              const moveX = (dx / distance) * huntEffectiveSpeed;
+              const moveY = (dy / distance) * huntEffectiveSpeed;
+              let newX = virus.x + moveX,
+                newY = virus.y + moveY;
+              if (!checkCollision(newX, virus.y)) virus.x = newX;
+              else if (!checkCollision(virus.x, newY)) virus.y = newY;
+            }
+            // Deal damage to player (cooldown-enforced)
+            const distToPlayerFinal = Math.hypot(virus.x - player.x, virus.y - player.y);
+            if (distToPlayerFinal < VIRUS_DAMAGE_CONFIG.HITBOX_RADIUS) {
+              tryDealPlayerDamage(virus);
+            }
+            return; // Skip rest of AI logic when hunting
+          }
+        }
+        // --- Virus Rule Interaction Logic ---
+        let virusInteractedWithRule = false;
+        for (const ruleBlock of ruleBlocks) {
+          const distToRuleBlock = Math.hypot(virus.x - ruleBlock.x, virus.y - ruleBlock.y);
+          if (distToRuleBlock < TILE_SIZE * 2) { // Virus is near a rule block
+            // Rule 1: FIREWALL IS WALL
+            if (player.toggleStates[1] === true && (virus.activationCooldowns[1] || 0) <= 0) {
+              const virusTarget = player.huntModeActive ? player : systemNodes.find(n => !n.infected);
+              if (virusTarget) {
+                const lineOfSightBlockedByFirewall = checkLineOfSightForSpecificTile(virus.x, virus.y, virusTarget.x, virusTarget.y, TILE.FIREWALL, true);
+                if (lineOfSightBlockedByFirewall) {
+                  activateRule(1, 'virus');
+                  virus.activationCooldowns[1] = RULES.find(r => r.id === 1).cooldown;
+                  virusInteractedWithRule = true;
+                  break;
+                }
+              }
+            }
+            // Rule 2: NODES ARE LOCKED
+            if (player.toggleStates[2] === true && (virus.activationCooldowns[2] || 0) <= 0) {
+              const targetNode = systemNodes.find(node => !node.infected && (player.toggleStates[2] !== true));
+              if (targetNode) {
+                activateRule(2, 'virus');
+                virus.activationCooldowns[2] = RULES.find(r => r.id === 2).cooldown;
+                virusInteractedWithRule = true;
+                break;
+              }
+            }
+            // Rule 5 (new): COOLANT IS SAFE
+            if (player.durationTimers[5] > 0 && (virus.activationCooldowns[5] || 0) <= 0) {
+              const coolantRule = RULES.find(r => r.id === 5);
+              if (coolantRule) {
+                player.durationTimers[5] = -coolantRule.cooldown;
+                virus.activationCooldowns[5] = coolantRule.cooldown;
+                console.log(`Virus #${virus.id + 1} deactivated COOLANT IS SAFE!`);
+                triggerGlitchEffect();
+                virusInteractedWithRule = true;
+                break;
+              }
+            }
+          }
+        }
+        // Update virus-specific cooldowns for rules
+        for (let ruleId in virus.activationCooldowns) {
+          if (virus.activationCooldowns[ruleId] > 0) virus.activationCooldowns[ruleId] -= dt;
+        }
+        if (virusInteractedWithRule || virus.stopped) return; // Skip movement if interacted with rule or stopped
+        // Target selection: uninfected nodes, then any node
+        let target = null,
+          minDist = Infinity;
+        systemNodes.forEach(node => {
+          // If NODES ARE LOCKED (Rule 2) is active, viruses cannot target nodes
+          if (!node.infected && (player.toggleStates[2] !== true)) {
+            const dist = Math.hypot(virus.x - node.x, virus.y - node.y);
+            if (dist < minDist && hasLineOfSight(virus.x, virus.y, node.x, node.y)) {
+              minDist = dist;
+              target = node;
+            }
+          }
+        });
+        if (target) {
+          virus.targetNodeId = target.id;
+          const dx = target.x - virus.x,
+            dy = target.y - virus.y,
+            distance = Math.hypot(dx, dy);
+          if (distance > 10) {
+            const moveX = (dx / distance) * effectiveSpeed,
+              moveY = (dy / distance) * effectiveSpeed;
+            let newX = virus.x + moveX,
+              newY = virus.y + moveY;
+            if (!checkCollision(newX, virus.y)) virus.x = newX;
+            else if (!checkCollision(virus.x, newY)) virus.y = newY;
+          } else {
+            // Infect the node!
+            if ((player.toggleStates[2] !== true)) {
+              target.infected = true;
+              console.log(`⚠️ ${target.name} has been INFECTED by Virus #${virus.id + 1}!`);
+              if (target.effectName) {
+                setTimeout(() => {
+                  console.log(`🔴 ${target.effectName}: ${target.name} infection effects active! Clean the node ASAP.`);
+                }, 500);
+              }
+              virus.targetNodeId = null;
+            }
+          }
+        }
+        // Normal AI: also deal damage if touching player (cooldown-enforced)
+        const distToPlayer = Math.hypot(virus.x - player.x, virus.y - player.y);
+        if (distToPlayer < VIRUS_DAMAGE_CONFIG.HITBOX_RADIUS) {
+          tryDealPlayerDamage(virus);
+        }
+      });
+    }
+    /**
+     * Checks if there's a clear line of sight between two points, avoiding generic walls.
+     */
+    function hasLineOfSight(x1, y1, x2, y2) {
+      const steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) / 10;
+      for (let i = 0; i < steps; i++) {
+        const t = i / steps;
+        const checkX = x1 + (x2 - x1) * t;
+        const checkY = y1 + (y2 - y1) * t;
+        const tileX = Math.floor(checkX / TILE_SIZE);
+        const tileY = Math.floor(checkY / TILE_SIZE);
+        if (tileX < 0 || tileX >= levelMap[0].length || tileY < 0 || tileY >= levelMap.length) {
+          return true; // Consider out of bounds as clear for this general check
+        }
+        const tileType = levelMap[tileY][tileX];
+        if (tileType === TILE.WALL || tileType === TILE.TUTORIAL_WALL || (tileType === TILE.FIREWALL && player.toggleStates[1] === true)) {
+          return false; // Blocked by a wall
+        }
+      }
+      return true; // Line of sight is clear
+    }
+    /**
+     * Checks if there's a specific tile type blocking the line of sight between two points.
+     */
+    function checkLineOfSightForSpecificTile(x1, y1, x2, y2, tileToCheck, isRuleActive) {
+      if (!isRuleActive) return false;
+      const steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) / 10;
+      for (let i = 0; i < steps; i++) {
+        const t = i / steps;
+        const checkX = x1 + (x2 - x1) * t;
+        const checkY = y1 + (y2 - y1) * t;
+        const tileX = Math.floor(checkX / TILE_SIZE);
+        const tileY = Math.floor(checkY / TILE_SIZE);
+        if (tileX < 0 || tileX >= levelMap[0].length || tileY < 0 || tileY >= levelMap.length) {
+          continue;
+        }
+        const tileType = levelMap[tileY][tileX];
+        if (tileType === tileToCheck) {
+          return true; // Line of sight is blocked by the specific tile type
+        }
+      }
+      return false; // Line of sight is clear of the specific tile type
+    }
+    // ============================================================================
+    // WIN/LOSE CONDITIONS
+    // ============================================================================
+    function checkWinLoseConditions() {
+      if (player.health <= 0) {
+        gameOver("NEURAL OVERLOAD - BLUE SCREEN", COLORS.RED);
+        return;
+      }
+      const infectedNodes = systemNodes.filter(n => n.infected).length;
+      if (infectedNodes >= 5) {
+        gameOver("FULL SYSTEM COMPROMISE", COLORS.RED);
+        return;
+      }
+      const quarantinedCount = 3 - viruses.length;
+      // Win condition: All viruses quarantined AND at most 1 node infected
+      if (quarantinedCount >= 3 && infectedNodes <= 1)
+        gameOver("SYSTEM QUARANTINED - VICTORY", COLORS.LIME_GREEN);
+    }
+
+    function gameOver(message, color) {
+      gameRunning = false;
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.9); color: ${color}; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 300; font-size: 48px; text-shadow: 0 0 20px ${color};`;
+      overlay.innerHTML = `<div>${message}</div><button onclick="location.reload()" style="margin-top:50px;padding:15px 40px;font-size:24px;background:${COLORS.MAGENTA};border:none;color:#fff;cursor:pointer;">RETRY</button>`;
+      document.body.appendChild(overlay);
+    }
+    // ============================================================================
+    // RENDERING - RAYCASTING ENGINE WITH VAPORWAVE FLOOR! + VISUAL EFFECTS!
+    // ============================================================================
+    function render() {
+      ctx.fillStyle = COLORS.DARK_PURPLE;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      renderVaporwaveFloor();
+      castRays();
+      renderSprites();
+      applyVisualInfectionEffects();
+      // ✅ NEW: Render Mini-Map (Radar)
+      drawMiniMap();
+    }
+    // ============================================================================
+    // ✅ NEW: MINI-MAP (RADAR) RENDERER
+    // ============================================================================
+    function drawMiniMap() {
+      if (!radarCanvas) return;
+      // Clear radar canvas
+      radarCtx.fillStyle = '#001428'; // Background color matching CSS
+      radarCtx.fillRect(0, 0, radarCanvas.width, radarCanvas.height);
+      // Player grid position
+      const playerTileX = Math.floor(player.x / TILE_SIZE);
+      const playerTileY = Math.floor(player.y / TILE_SIZE);
+      // Radar View Radius (tuning this changes how much you see)
+      const viewRadiusX = 12; // Horizontal tiles visible
+      const viewRadiusY = 5; // Vertical tiles visible
+      // Center of radar canvas
+      const centerX = radarCanvas.width / 2;
+      const centerY = radarCanvas.height / 2;
+      // Calculate pixel scale based on view radius
+      const tileWidth = radarCanvas.width / (viewRadiusX * 2);
+      const tileHeight = radarCanvas.height / (viewRadiusY * 2 + 1); // Slight offset for aspect ratio
+      // Loop through visible tiles
+      for (let y = -viewRadiusY; y <= viewRadiusY; y++) {
+        for (let x = -viewRadiusX; x <= viewRadiusX; x++) {
+          const mapY = playerTileY + y;
+          const mapX = playerTileX + x;
+          // Bounds check for levelMap array
+          if (mapY >= 0 && mapY < levelMap.length &&
+            mapX >= 0 && mapX < levelMap[0].length) {
+            const tileType = levelMap[mapY][mapX];
+            // Calculate screen position relative to player (center)
+            const pixelX = centerX + x * tileWidth;
+            const pixelY = centerY + y * tileHeight - (tileHeight / 2); // Center vertically within row
+            const px = Math.max(0, pixelX);
+            const py = Math.max(0, pixelY);
+            const pw = Math.min(tileWidth, radarCanvas.width - px);
+            const ph = Math.min(tileHeight, radarCanvas.height - py);
+            // Draw based on tile type
+            if (tileType === TILE.WALL || tileType === TILE.TUTORIAL_WALL) {
+              radarCtx.fillStyle = '#647895'; // Dim gray/blue for walls
+              if (tileType === TILE.TUTORIAL_WALL) radarCtx.fillStyle = '#2a1b3d';
+              radarCtx.fillRect(px, py, pw, ph);
+            } else if (tileType === TILE.FIREWALL) {
+              radarCtx.fillStyle = '#F9E644'; // Yellow firewall
+            } else if (tileType === TILE.SYSTEM_NODE) {
+              radarCtx.fillStyle = systemNodes.find(n =>
+                Math.floor(n.x / TILE_SIZE) === mapX &&
+                Math.floor(n.y / TILE_SIZE) === mapY
+              )?.infected ? '#ff0000' : '#0080ff'; // Red for infected, blue for node
+            } else if (tileType === TILE.COOLANT) {
+              radarCtx.fillStyle = '#00ffff'; // Cyan coolant
+            } else {
+              radarCtx.fillStyle = '#001428'; // Empty space (or very dark)
+            }
+            radarCtx.fillRect(px, py, pw, ph);
+          }
+        }
+      }
+      // Draw Player Indicator (Arrow)
+      radarCtx.save();
+      radarCtx.translate(centerX, centerY);
+      // Rotate arrow to match player angle (Note: Radar Y is usually inverted for "North Up" or just map-aligned)
+      // Since this radar shows current tiles, rotating by player angle makes the arrow point where they are facing
+      const arrowSize = 4;
+      radarCtx.strokeStyle = '#00FF00'; // Bright green player dot/arrow
+      radarCtx.lineWidth = 1.5;
+      // Draw crosshair point for player
+      radarCtx.fillStyle = '#00FF00';
+      radarCtx.beginPath();
+      radarCtx.arc(0, 0, arrowSize / 2, 0, Math.PI * 2);
+      radarCtx.fill();
+      // Draw direction indicator (head of arrow)
+      const dirOffset = 3;
+      radarCtx.beginPath();
+      radarCtx.moveTo(0, 0);
+      // Add player angle to direction calculation
+      let angle = -player.angle; // Negate because canvas rotation is clockwise but Y grows down
+      radarCtx.lineTo(0 - arrowSize * Math.cos(angle + 0.5), (-arrowSize) * Math.sin(angle) - dirOffset);
+      radarCtx.lineTo(0 + arrowSize * Math.cos(angle - 0.5), (arrowSize) * Math.sin(angle) - dirOffset);
+      radarCtx.closePath();
+      // Simple directional dot instead of complex rotation to avoid confusion on inverted Y axis
+      radarCtx.fillStyle = '#00FF00';
+      radarCtx.fillRect(-1, -2 * arrowSize + dirOffset, 2, 2);
+      radarCtx.restore();
+      // Draw Grid Lines (optional but looks cool)
+      radarCtx.strokeStyle = 'rgba(0, 255, 255, 0.1)';
+      radarCtx.lineWidth = 1;
+      for (let x = 0; x <= radarCanvas.width; x += tileWidth) {
+        radarCtx.beginPath();
+        radarCtx.moveTo(x, 0);
+        radarCtx.lineTo(x, radarCanvas.height);
+        radarCtx.stroke();
+      }
+      for (let y = 0; y <= radarCanvas.height; y += tileHeight) {
+        radarCtx.beginPath();
+        radarCtx.moveTo(0, y);
+        radarCtx.lineTo(radarCanvas.width, y);
+        radarCtx.stroke();
+      }
+    }
+
+    function castRays() {
+      const startAngle = player.angle - FOV / 2,
+        angleStep = FOV / RAY_COUNT;
+      for (let i = 0; i < RAY_COUNT; i++) {
+        const rayAngle = startAngle + i * angleStep;
+        let x = player.x,
+          y = player.y,
+          dx = Math.cos(rayAngle),
+          dy = Math.sin(rayAngle),
+          distance = 0,
+          hitWall = false,
+          wallColor = COLORS.WHITE;
+        while (distance < MAX_DEPTH * TILE_SIZE && !hitWall) {
+          x += dx * 5;
+          y += dy * 5;
+          distance += 5;
+          const tileX = Math.floor(x / TILE_SIZE),
+            tileY = Math.floor(y / TILE_SIZE);
+          if (tileX < 0 || tileX >= levelMap[0].length || tileY < 0 || tileY >= levelMap.length) {
+            hitWall = true;
+            wallColor = COLORS.RED;
+          } else {
+            const tileType = levelMap[tileY][tileX];
+            if (tileType === TILE.WALL || tileType === TILE.TUTORIAL_WALL) {
+              hitWall = true;
+              wallColor = getWallColor(tileType, distance);
+            } else if (tileType === TILE.FIREWALL && player.toggleStates[1]) {
+              hitWall = true;
+              wallColor = COLORS.MAGENTA;
+            }
+          }
+        }
+        const correctedDistance = distance * Math.cos(rayAngle - player.angle),
+          wallHeight = Math.min(CANVAS_HEIGHT, (TILE_SIZE / correctedDistance) * CANVAS_HEIGHT * 0.5),
+          xScreen = i * (CANVAS_WIDTH / RAY_COUNT),
+          yTop = (CANVAS_HEIGHT - wallHeight) / 2,
+          shadeFactor = Math.max(0.1, 1 - correctedDistance / (MAX_DEPTH * TILE_SIZE));
+        ctx.fillStyle = applyShade(wallColor, shadeFactor);
+        ctx.fillRect(xScreen, yTop, CANVAS_WIDTH / RAY_COUNT + 1, wallHeight);
+        if (distance < TILE_SIZE * 5) {
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = wallColor;
+          ctx.fillRect(xScreen, yTop, CANVAS_WIDTH / RAY_COUNT + 1, wallHeight);
+          ctx.shadowBlur = 0;
+        }
+      }
+    }
+
+    function getWallColor(tileType, distance) {
+      switch (tileType) {
+        case TILE.WALL:
+          return COLORS.PURPLE;
+        case TILE.TUTORIAL_WALL:
+          return COLORS.NEON_PINK;
+        default:
+          return COLORS.WHITE;
+      }
+    }
+
+    function applyShade(color, factor) {
+      const r = parseInt(color.slice(1, 3), 16),
+        g = parseInt(color.slice(3, 5), 16),
+        b = parseInt(color.slice(5, 7), 16);
+      return `rgb(${Math.floor(r * factor)}, ${Math.floor(g * factor)}, ${Math.floor(b * factor)})`;
+    }
+
+    function renderSprites() {
+      // Render system nodes
+      systemNodes.forEach(node => {
+        const screenPos = projectToScreen(node.x, node.y);
+        if (screenPos.visible && screenPos.z < TILE_SIZE * 10) {
+          const spriteWidth = Math.max(20, 64 / screenPos.z * CANVAS_WIDTH * 0.5),
+            spriteHeight = spriteWidth;
+          ctx.fillStyle = node.infected ? COLORS.RED : node.color;
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = node.infected ? COLORS.RED : node.color;
+          if (node.infected && (player.toggleStates[2] !== true)) {
+            const pulse = Math.sin(Date.now() / 200) * 3 + spriteWidth;
+            ctx.fillRect(screenPos.x - pulse / 2, (CANVAS_HEIGHT - spriteHeight) / 2, pulse, spriteHeight);
+          } else {
+            ctx.fillRect(screenPos.x - spriteWidth / 2, (CANVAS_HEIGHT - spriteHeight) / 2, spriteWidth, spriteHeight);
+          }
+          let baseFontSize = 30 / screenPos.z * CANVAS_WIDTH * 0.5,
+            fontSize = Math.max(14, Math.min(baseFontSize, 28));
+          ctx.save();
+          ctx.fillStyle = COLORS.WHITE;
+          ctx.font = `${fontSize}px 'Courier New'`;
+          ctx.textAlign = 'center';
+          ctx.shadowColor = '#000000';
+          ctx.shadowBlur = 3;
+          ctx.shadowOffsetX = 1;
+          ctx.shadowOffsetY = 1;
+          const labelY = (CANVAS_HEIGHT - spriteHeight) / 2 - 8;
+          ctx.fillText(node.name, screenPos.x, labelY);
+          if (node.infected) {
+            const infectedFontSize = Math.max(10, Math.min(baseFontSize * 0.85, 20));
+            ctx.fillStyle = COLORS.RED;
+            ctx.font = `${infectedFontSize}px 'Courier New'`;
+            const infectedLabelY = (CANVAS_HEIGHT + spriteHeight) / 2 + 8;
+            if (node.effectName && (player.toggleStates[2] !== true)) {
+              ctx.fillText(`⚠ ${node.effectName}`, screenPos.x, infectedLabelY);
+            } else {
+              ctx.fillText('⚠ INFECTED', screenPos.x, infectedLabelY);
+            }
+            if (player.isCleaningNode && player.cleaningTargetNodeId === node.id) {
+              const progressPct = Math.floor(player.cleaningProgress);
+              ctx.fillStyle = COLORS.LIME_GREEN;
+              ctx.font = `${infectedFontSize}px 'Courier New'`;
+              const cleaningLabelY = infectedLabelY + 20;
+              ctx.fillText(`🧹 CLEANING: ${progressPct}%`, screenPos.x, cleaningLabelY);
+            }
+          } else if (player.toggleStates[2] === true) {
+            const lockedFontSize = Math.max(10, Math.min(baseFontSize * 0.85, 20));
+            ctx.fillStyle = COLORS.CYAN;
+            ctx.font = `${lockedFontSize}px 'Courier New'`;
+            const lockedLabelY = (CANVAS_HEIGHT + spriteHeight) / 2 + 8;
+            ctx.fillText('🔒 LOCKED', screenPos.x, lockedLabelY);
+          } else if (node.id === 4 && !node.infected) {
+            const healFontSize = Math.max(10, Math.min(baseFontSize * 0.85, 20));
+            ctx.fillStyle = COLORS.LIME_GREEN;
+            ctx.font = `${healFontSize}px 'Courier New'`;
+            const healLabelY = (CANVAS_HEIGHT + spriteHeight) / 2 + 8;
+            const playerTileX = Math.floor(player.x / TILE_SIZE);
+            const playerTileY = Math.floor(player.y / TILE_SIZE);
+            const nodeTileX = Math.floor(node.x / TILE_SIZE);
+            const nodeTileY = Math.floor(node.y / TILE_SIZE);
+            if (playerTileX === nodeTileX && playerTileY === nodeTileY && player.health < 100) {
+              ctx.fillText('💚 HEALING...', screenPos.x, healLabelY);
+            } else {
+              ctx.fillText('🔋 SECURE', screenPos.x, healLabelY);
+            }
+          }
+          ctx.restore();
+          ctx.shadowBlur = 0;
+        }
+      });
+      // Render viruses
+      viruses.forEach(virus => {
+        const screenPos = projectToScreen(virus.x, virus.y);
+        if (screenPos.visible && screenPos.z < TILE_SIZE * 15) {
+          const spriteSize = Math.max(10, 32 / screenPos.z * CANVAS_WIDTH * 0.5),
+            pulse = Math.sin(Date.now() / 100) * 3;
+          ctx.fillStyle = COLORS.RED;
+          ctx.shadowBlur = 20;
+          ctx.shadowColor = COLORS.RED;
+          ctx.beginPath();
+          ctx.arc(screenPos.x, screenPos.y + spriteSize / 4, (spriteSize / 2) + pulse, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+      });
+      // Visual indicator when carrying virus!
+      if (player.carryingVirusId !== null) {
+        const pulse = Math.sin(Date.now() / 100) * 0.3 + 0.7;
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        ctx.fillStyle = COLORS.RED;
+        ctx.beginPath();
+        ctx.arc(CANVAS_WIDTH / 2, CANVAS_HEIGHT - 50, 20, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = COLORS.WHITE;
+        ctx.font = '14px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText('VIRUS CARRIED', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 35);
+        ctx.restore();
+      }
+      // ✅ NEW: Visual indicator when cleaning a node!
+      if (player.isCleaningNode) {
+        const pulse = Math.sin(Date.now() / 100) * 0.3 + 0.7;
+        const progressPct = Math.floor(player.cleaningProgress);
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        ctx.strokeStyle = COLORS.LIME_GREEN;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(CANVAS_WIDTH / 2, CANVAS_HEIGHT - 100, 35 + Math.sin(Date.now() / 200) * 5, 0, Math.PI * 2);
+        ctx.stroke();
+        const barWidth = 80;
+        const barHeight = 12;
+        const barX = CANVAS_WIDTH / 2 - barWidth / 2;
+        const barY = CANVAS_HEIGHT - 95;
+        ctx.fillStyle = '#333';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+        const gradient = ctx.createLinearGradient(barX, 0, barX + barWidth, 0);
+        gradient.addColorStop(progressPct / 100, '#00FF00');
+        gradient.addColorStop(progressPct / 100, '#333');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(barX, barY, barWidth * progressPct / 100, barHeight);
+        ctx.fillStyle = COLORS.LIME_GREEN;
+        ctx.font = 'bold 14px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${progressPct}%`, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 80);
+        ctx.fillStyle = COLORS.WHITE;
+        ctx.font = '12px Courier New';
+        ctx.fillText('CLEANING NODE...', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 65);
+        ctx.restore();
+      }
+      // ✅ NEW: Visual indicator for Neural Link pending rules!
+      const pendingRules = Object.keys(player.pendingToggleRules).length;
+      if (pendingRules > 0) {
+        const pulse = Math.sin(Date.now() / 100) * 0.3 + 0.7;
+        ctx.save();
+        ctx.globalAlpha = pulse;
+        ctx.strokeStyle = COLORS.ORANGE;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(CANVAS_WIDTH / 2, CANVAS_HEIGHT - 150, 30 + Math.sin(Date.now() / 200) * 3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = COLORS.ORANGE;
+        ctx.font = 'bold 12px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText(`⏱️ ${pendingRules} PENDING`, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 140);
+        if (pendingRules <= 2) {
+          const ruleIds = Object.keys(player.pendingToggleRules).map(id => parseInt(id));
+          ctx.fillStyle = COLORS.WHITE;
+          ctx.font = '10px Courier New';
+          let timeRemainingTexts = [];
+          ruleIds.forEach(ruleId => {
+            if (player.toggleDelayTimers[ruleId] > 0) {
+              const remaining = Math.ceil(player.toggleDelayTimers[ruleId]);
+              const ruleName = RULES.find(r => r.id === ruleId).name;
+              timeRemainingTexts.push(`[${ruleId}] ${remaining}s`);
+            }
+          });
+          if (timeRemainingTexts.length > 0) {
+            ctx.fillText(timeRemainingTexts.join(' | '), CANVAS_WIDTH / 2, CANVAS_HEIGHT - 125);
+          }
+        }
+        ctx.restore();
+      }
+    }
+    // ============================================================================
+    // ✅ NEW: VISUAL INFECTION EFFECTS (Visual Processor + Auditory Processing)
+    // ============================================================================
+    function applyVisualInfectionEffects() {
+      if (!player.infectionStates) return;
+      if (player.toggleStates[2] === true) return;
+      const visualProcessorInfected = player.infectionStates.visualProcessor;
+      const auditoryProcessingInfected = player.infectionStates.auditoryProcessing;
+      // ✅ VISUAL PROCESSOR EFFECT: Screen shake + color desaturation
+      if (visualProcessorInfected) {
+        const time = Date.now() / 100;
+        const shakeX = Math.sin(time * 3) * 5 + Math.cos(time * 7) * 3;
+        const shakeY = Math.cos(time * 2.5) * 4 + Math.sin(time * 5) * 2;
+        ctx.save();
+        ctx.translate(shakeX, shakeY);
+        ctx.fillStyle = 'rgba(100, 100, 100, 0.15)';
+        ctx.fillRect(-shakeX, -shakeY, CANVAS_WIDTH + shakeX * 2, CANVAS_HEIGHT + shakeY * 2);
+        ctx.restore();
+      }
+      // ✅ AUDITORY PROCESSING EFFECT: RGB channel shift/static effect
+      if (auditoryProcessingInfected && Math.random() < 0.3) {
+        const imageData = ctx.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+          if (Math.random() < 0.2) {
+            const tempR = data[i];
+            data[i] = data[i + 2];
+            data[i + 2] = tempR;
+            if (Math.random() < 0.3) {
+              const boostChannel = Math.floor(Math.random() * 3);
+              data[i + boostChannel] = Math.min(255, data[i + boostChannel] + 80);
+            }
+          }
+        }
+        ctx.putImageData(imageData, 0, 0);
+      }
+    }
+
+    function projectToScreen(worldX, worldY) {
+      const dx = worldX - player.x,
+        dy = worldY - player.y,
+        cosAngle = Math.cos(-player.angle),
+        sinAngle = Math.sin(-player.angle),
+        rotatedX = dx * cosAngle - dy * sinAngle,
+        rotatedY = dx * sinAngle + dy * cosAngle;
+      if (rotatedX <= 0 || Math.abs(rotatedY / rotatedX) > Math.tan(FOV / 2))
+        return {
+          visible: false
+        };
+      const z = rotatedX,
+        xScreen = (rotatedY / rotatedX) * (CANVAS_WIDTH / (2 * Math.tan(FOV / 2))) + CANVAS_WIDTH / 2,
+        yScreen = CANVAS_HEIGHT / 2;
+      return {
+        visible: true,
+        x: xScreen,
+        y: yScreen,
+        z: z
+      };
+    }
+
+    function applyVisualEffects() {
+      if (Math.random() < 0.02 && systemNodes.some(n => n.infected)) {
+        const offset = Math.floor(Math.random() * 10 - 5);
+        ctx.drawImage(canvas, offset, 0);
+      }
+    }
+
+    function triggerGlitchEffect() {
+      for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+          const imageData = ctx.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT),
+            data = imageData.data;
+          for (let j = 0; j < data.length; j += 4) {
+            if (Math.random() < 0.1) {
+              data[j] = Math.min(255, data[j] + 30);
+              data[j + 1] = Math.max(0, data[j + 1] - 30);
+              data[j + 2] = Math.random() > 0.5 ? 255 : 0;
+            }
+          }
+          ctx.putImageData(imageData, 0, 0);
+        }, i * 50);
+      }
+    }
+    // ============================================================================
+    // HUD UPDATE & DISPLAY - ✅ WITH INFECTION EFFECTS!
+    // ============================================================================
+    function updateHUD() {
+      if (isPaused || !gameRunning) return;
+      document.getElementById('healthText').textContent = Math.floor(player.health) + '%';
+      document.getElementById('healthFill').style.width = player.health + '%';
+      const nodesSecure = systemNodes.filter(n => !n.infected).length;
+      document.getElementById('nodesSecureText').textContent = `${nodesSecure}/5`;
+      document.getElementById('virusesActiveText').textContent = `${viruses.length} (${3 - viruses.length} quarantined)`;
+      updateInfectionEffectsHUD();
+      let captureHTML = '<div class="rule-section"><div class="rule-title">CAPTURE STATUS:</div>';
+      if (player.carryingVirusId !== null) {
+        captureHTML += `<div class="rule-item active" style="background: rgba(255, 0, 0, 0.3);">`;
+        captureHTML += `<span>CARRYING VIRUS #${player.carryingVirusId + 1}</span>`;
+        captureHTML += `<span>[QUARANTINE TO DEPOSIT]</span></div>`;
+        if (player.isQuarantining) {
+          const progressBar = Math.floor(player.quarantineProgress);
+          captureHTML += `<div style="margin-top: 10px;">`;
+          captureHTML += `<div style="color: #FFA500; margin-bottom: 3px;">QUARANTINE PROGRESS:</div>`;
+          captureHTML += `<div style="width: 100%; height: 20px; background: #333; border: 2px solid #8B00FF;">`;
+          captureHTML += `<div style="width: ${progressBar}%; height: 100%; background: linear-gradient(90deg, #FFA500, #FFFF00); transition: width 0.1s;"></div>`;
+          captureHTML += `</div><div style="color: #FFFF00; text-align: center; margin-top: 3px;">${progressBar}% - DO NOT MOVE!</div></div>`;
+        }
+      } else {
+        const currentTime = Date.now() / 1000,
+          captureStatus = (currentTime >= player.captureReadyTime) ? 'READY TO CAPTURE [C]' : `${Math.ceil(player.captureReadyTime - currentTime)}s COOLDOWN`,
+          statusClass = (currentTime >= player.captureReadyTime) ? 'ready' : 'cooldown';
+        captureHTML += `<div class="rule-item ${statusClass}">`;
+        captureHTML += `<span>CAPTURE VIRUS [C]</span><span>${captureStatus}</span></div>`;
+      }
+      if (player.huntWarningTimer > 0) {
+        captureHTML += `<div class="rule-item cooldown" style="background: rgba(255, 0, 0, 0.4); border: 2px solid #FF0000;">`;
+        captureHTML += `<span>⚠️ HUNT MODE WARNING</span><span>${Math.ceil(player.huntWarningTimer)}s</span></div>`;
+      } else if (player.huntModeActive) {
+        captureHTML += `<div class="rule-item cooldown" style="background: rgba(255, 0, 0, 0.5); border: 2px solid #FF4400;">`;
+        captureHTML += `<span>🔥 HUNT MODE ACTIVE!</span><span>VIRUSES ARE COMING</span></div>`;
+      }
+      if (player.isCleaningNode) {
+        const targetNode = systemNodes.find(n => n.id === player.cleaningTargetNodeId);
+        const progressPct = Math.floor(player.cleaningProgress);
+        captureHTML += `<div class="rule-item active" style="background: rgba(0, 255, 0, 0.3); border: 2px solid #00FF00;">`;
+        captureHTML += `<span>🧹 CLEANING ${targetNode?.name || 'NODE'}</span>`;
+        captureHTML += `<span>${progressPct}% - HOLD STILL!</span></div>`;
+        const nearbyVirus = viruses.some(v => Math.hypot(player.x - v.x, player.y - v.y) < CLEANING_CONFIG.VIRUS_INTERRUPT_DISTANCE);
+        captureHTML += `<div style="margin-top: 8px;">`;
+        captureHTML += `<div style="color: #00FF00; margin-bottom: 3px; font-size: 10px;">CLEANING PROGRESS:</div>`;
+        captureHTML += `<div style="width: 100%; height: 16px; background: #333; border: 2px solid ${nearbyVirus ? '#FF0000' : '#8B00FF'};">`;
+        const barColor = nearbyVirus ? 'linear-gradient(90deg, #FF4400, #FFFF00)' : 'linear-gradient(90deg, #00FF00, #FFFF00)';
+        captureHTML += `<div style="width: ${progressPct}%; height: 100%; background: ${barColor}; transition: width 0.1s;"></div>`;
+        captureHTML += `</div>`;
+        if (nearbyVirus) {
+          captureHTML += `<div style="color: #FF4400; text-align: center; margin-top: 3px; font-size: 10px;">⚠️ VIRUS NEARBY - CLEANING AT RISK!</div>`;
+        } else {
+          captureHTML += `<div style="color: #FFFF00; text-align: center; margin-top: 3px; font-size: 10px;">${progressPct}% COMPLETE</div>`;
+        }
+        captureHTML += `</div>`;
+      }
+      const pendingRules = Object.keys(player.pendingToggleRules).length;
+      if (pendingRules > 0) {
+        captureHTML += `<div class="rule-item cooldown" style="background: rgba(255, 165, 0, 0.3); border: 2px solid #FFA500;">`;
+        captureHTML += `<span>⏱️ PENDING RULE ACTIVATIONS</span><span>${pendingRules} rule${pendingRules > 1 ? 's' : ''}</span></div>`;
+        let timeRemainingTexts = [];
+        Object.keys(player.pendingToggleRules).forEach(ruleId => {
+          if (player.toggleDelayTimers[ruleId] > 0) {
+            const remaining = Math.ceil(player.toggleDelayTimers[ruleId]);
+            const ruleName = RULES.find(r => r.id === parseInt(ruleId)).name;
+            timeRemainingTexts.push(`[${ruleId}] ${remaining}s`);
+          }
+        });
+        if (timeRemainingTexts.length > 0) {
+          captureHTML += `<div style="margin-top: 5px; color: #FFA500; font-size: 10px;">${timeRemainingTexts.join(' | ')}</div>`;
+        }
+        captureHTML += `</div>`;
+      }
+      captureHTML += '</div>';
+      const captureContainer = document.getElementById('captureStatusSection');
+      if (captureContainer) captureContainer.innerHTML = captureHTML;
+      updateRuleDisplays();
+    }
+
+    function updateInfectionEffectsHUD() {
+      const infectionContainer = document.getElementById('infectionEffectsSection');
+      if (!infectionContainer) return;
+      const activeEffects = getActiveInfectionEffects();
+      if (activeEffects.length === 0) {
+        infectionContainer.innerHTML = '';
+        return;
+      }
+      let html = '<div class="infection-warning">';
+      const severityClass = activeEffects.length >= 2 ? 'critical' : '';
+      const severityLabel = activeEffects.length >= 2 ? '⚠️ CRITICAL SYSTEM FAILURE ⚠️' : '⚠️ INFECTION EFFECTS ACTIVE';
+      html += `<div class="infection-warning-title ${severityClass}">${severityLabel}</div>`;
+      activeEffects.forEach(effect => {
+        const criticalClass = effect.isCritical ? 'critical' : '';
+        const severityIcon = effect.isCritical ? '🔴' : '⚠️';
+        html += `<div class="infection-effect-item ${criticalClass}">`;
+        html += `${severityIcon} <strong>${effect.node.name}</strong>: ${effect.effectName}`;
+        switch (effect.node.id) {
+          case 0:
+            html += ' - Movement impaired';
+            break;
+          case 1:
+            html += ' - Visual distortion active';
+            break;
+          case 2:
+            html += ' - Audio static interference';
+            break;
+          case 3:
+            html += ' - Rules activate slowly!';
+            break;
+          case 4:
+            html += ' - Health draining, healing blocked';
+            break;
+        }
+        html += `</div>`;
+      });
+      html += `<div style="margin-top: 5px; color: #FFA500; font-size: 10px;">💡 TIP: Activate "NODES ARE LOCKED" [Rule 2] to block infection effects!</div>`;
+      const lifeSupportNode = systemNodes.find(n => n.id === 4);
+      if (lifeSupportNode && !lifeSupportNode.infected) {
+        html += `<div style="margin-top: 5px; color: #00FF00; font-size: 10px;">💚 Life Support secure - stand on it to heal!</div>`;
+      }
+      html += '</div>';
+      infectionContainer.innerHTML = html;
+    }
+
+    function updateRuleDisplays() {
+      const toggleContainer = document.getElementById('toggleRules'),
+        durationContainer = document.getElementById('durationRules');
+      let toggleHTML = '',
+        durationHTML = '';
+      RULES.forEach(rule => {
+        if (!player.acquiredRules.includes(rule.id)) return;
+        if (rule.type === "TOGGLE") {
+          const isActive = player.toggleStates[rule.id],
+            isOnCooldown = (player.toggleStates[`cooldown_${rule.id}`] || 0) > 0,
+            isPending = player.pendingToggleRules[rule.id] !== undefined;
+          toggleHTML += `<div class="rule-item ${isActive ? 'active' : ''} ${isOnCooldown ? 'cooldown' : ''} ${isPending ? 'cooldown' : ''}">`;
+          toggleHTML += `<span>[${rule.id}] ${rule.name}</span>`;
+          if (isPending) {
+            const remainingTime = Math.ceil(player.toggleDelayTimers[rule.id]);
+            toggleHTML += `<span>⏱️ PENDING (${remainingTime}s)</span></div>`;
+          } else if (rule.id === 2 && player.activeInfectionEffects > 0) {
+            const activeCount = player.activeInfectionEffects;
+            toggleHTML += `<span>${isOnCooldown ? Math.ceil(player.toggleStates[`cooldown_${rule.id}`]) + 's CD' : (isActive ? '[ACTIVE - EFFECTS BLOCKED]' : `[INACTIVE - ${activeCount} effect${activeCount > 1 ? 's' : ''} active]`)}</span></div>`;
+          } else {
+            toggleHTML += `<span>${isOnCooldown ? Math.ceil(player.toggleStates[`cooldown_${rule.id}`]) + 's CD' : (isActive ? '[ACTIVE]' : '[INACTIVE]')}</span></div>`;
+          }
+        } else if (rule.type === "DURATION") {
+          const timer = player.durationTimers[rule.id];
+          let status, className;
+          if (timer > 0) {
+            status = `${Math.ceil(timer)}s`;
+            className = 'active';
+          } else if (timer < -1) {
+            status = `${Math.abs(timer).toFixed(1)}s CD`;
+            className = 'cooldown';
+          } else {
+            status = 'READY';
+            className = 'ready';
+          }
+          durationHTML += `<div class="rule-item ${className}">`;
+          durationHTML += `<span>[${rule.id}] ${rule.name}</span><span>${status}</span></div>`;
+        }
+      });
+      toggleContainer.innerHTML = toggleHTML || '<div style="color: #8B00FF;">No toggle rules available.</div>';
+      durationContainer.innerHTML = durationHTML || '<div style="color: #8B00FF;">No duration rules available.</div>';
+    }
+    // ============================================================================
+    // INPUT HANDLING & UI FUNCTIONS - ✅ FIXED Q KEY HERE!
+    // ============================================================================
+    document.addEventListener('keydown', (e) => {
+      keys[e.key] = true;
+      if (e.key === 'Escape') toggleHelp();
+      if (e.key === 'F1') {
+        showDebug = !showDebug;
+        updateDebugOverlay();
+      }
+      if (e.key.toLowerCase() === 'c' && !player.isQuarantining && !player.isCleaningNode)
+        attemptCapture();
+      if (e.key.toLowerCase() === 'v' && !keys['ArrowLeft'] && !keys['a'] && !keys['A']) {
+        attemptQuarantine();
+      }
+    });
+    document.addEventListener('keyup', (e) => {
+      keys[e.key] = false;
+    });
+
+    function toggleHelp() {
+      const overlay = document.getElementById('helpOverlay');
+      if (isPaused) {
+        overlay.style.display = 'none';
+        isPaused = false;
+        gameRunning = true;
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
+      } else {
+        overlay.style.display = 'block';
+        isPaused = true;
+        gameRunning = false;
+      }
+    }
+
+    function updateDebugOverlay() {
+      const debugDiv = document.getElementById('debugOverlay');
+      if (showDebug) {
+        debugDiv.style.display = 'block';
+        let html = '<strong>DEBUG INFO</strong><br>';
+        html += `Player: (${Math.round(player.x)}, ${Math.round(player.y)})<br>`;
+        html += `Health: ${player.health.toFixed(1)}<br>`;
+        html += `Speed Multiplier: ${(player.speedMultiplier || 1.0).toFixed(2)}x<br>`;
+        html += `Acquired Rules: [${player.acquiredRules.join(', ')}]<br><br>`;
+        RULES.forEach(rule => {
+          const isActive = rule.type === "TOGGLE" ? player.toggleStates[rule.id] : (player.durationTimers[rule.id] > 0);
+          const cooldown = rule.type === "TOGGLE" ? (player.toggleStates[`cooldown_${rule.id}`] || 0) : Math.abs(player.durationTimers[rule.id] < 0 ? player.durationTimers[rule.id] : 0);
+          const pending = player.pendingToggleRules[rule.id] !== undefined;
+          html += `${rule.name}: ${isActive ? 'ACTIVE' : 'INACTIVE'} `;
+          if (pending) html += `(PENDING ${Math.ceil(player.toggleDelayTimers[rule.id])}s) `;
+          if (cooldown > 0) html += `(CD: ${cooldown.toFixed(1)}s)`;
+          html += `<br>`;
+        });
+        viruses.forEach((v, i) => {
+          html += `Virus ${i+1}: (${Math.round(v.x)}, ${Math.round(v.y)}) Target: ${v.targetNodeId !== null ? `Node ${v.targetNodeId}` : 'Player'}<br>`;
+          let virusRuleCDs = [];
+          for (let ruleId in v.activationCooldowns) {
+            if (v.activationCooldowns[ruleId] > 0) {
+              virusRuleCDs.push(`R${ruleId}: ${v.activationCooldowns[ruleId].toFixed(1)}s`);
+            }
+          }
+          if (virusRuleCDs.length > 0) {
+            html += `  Virus Rule CDs: [${virusRuleCDs.join(', ')}]<br>`;
+          }
+        });
+        html += `<br><strong>INFECTION EFFECTS:</strong><br>`;
+        html += `Active Effects Count: ${player.activeInfectionEffects || 0}<br>`;
+        systemNodes.forEach(node => {
+          const nodeLockedByRule = (player.toggleStates[2] === true);
+          const status = node.infected ? (nodeLockedByRule ? 'INFECTED + RULE 2 LOCKED' : 'INFECTED') : 'SECURE';
+          const effectInfo = node.effectName && node.infected && !nodeLockedByRule ? ` (${node.effectName} ACTIVE)` : '';
+          html += `${node.name}: ${status}${effectInfo}<br>`;
+        });
+        html += `<br><strong>HEALING SYSTEM:</strong><br>`;
+        const lifeSupportNode = systemNodes.find(n => n.id === 4);
+        if (lifeSupportNode) {
+          const nodeLockedByRule = (player.toggleStates[2] === true);
+          html += `Life Support Status: ${lifeSupportNode.infected ? 'INFECTED' : 'SECURE'}<br>`;
+          html += `Life Support Node Rule 2 Locked: ${nodeLockedByRule}<br>`;
+          const playerTileX = Math.floor(player.x / TILE_SIZE);
+          const playerTileY = Math.floor(player.y / TILE_SIZE);
+          const nodeTileX = Math.floor(lifeSupportNode.x / TILE_SIZE);
+          const nodeTileY = Math.floor(lifeSupportNode.y / TILE_SIZE);
+          if (playerTileX === nodeTileX && playerTileY === nodeTileY) {
+            html += `Player on Life Support: YES<br>`;
+            if (!lifeSupportNode.infected && !nodeLockedByRule && player.health < 100) {
+              html += `<span style="color: #00FF00;">💚 HEALING ACTIVE</span><br>`;
+            } else if (lifeSupportNode.infected || nodeLockedByRule) {
+              html += `<span style="color: #FF4400;">⚠️ Healing blocked by infection/lock</span><br>`;
+            }
+          } else {
+            html += `Player on Life Support: NO<br>`;
+          }
+        }
+        const coolantRule = RULES.find(r => r.id === 5);
+        if (coolantRule) {
+          const coolantActive = player.durationTimers[5] > 0;
+          const playerTileX = Math.floor(player.x / TILE_SIZE);
+          const playerTileY = Math.floor(player.y / TILE_SIZE);
+          const tileType = levelMap[playerTileY][playerTileX];
+          html += `Coolant is Safe Rule: ${coolantActive ? 'ACTIVE' : 'INACTIVE'}<br>`;
+          if (coolantActive && tileType === TILE.COOLANT && player.health < 100) {
+            html += `<span style="color: #00FF00;">💚 Player on Coolant, HEALING ACTIVE</span><br>`;
+          } else if (tileType === TILE.COOLANT) {
+            html += `Player on Coolant: YES, but rule not active.<br>`;
+          } else {
+            html += `Player on Coolant: NO<br>`;
+          }
+        }
+        const pendingRules = Object.keys(player.pendingToggleRules).length;
+        if (pendingRules > 0) {
+          html += `<br><strong>NEURAL LINK DELAY:</strong><br>`;
+          html += `Pending Rules: ${pendingRules}<br>`;
+          Object.keys(player.pendingToggleRules).forEach(ruleId => {
+            const ruleName = RULES.find(r => r.id === parseInt(ruleId)).name;
+            const remainingTime = Math.ceil(player.toggleDelayTimers[ruleId]);
+            html += `  Rule [${ruleId}] ${ruleName}: ${remainingTime}s<br>`;
+          });
+        }
+        html += `<br><strong>CLEANING SYSTEM:</strong><br>`;
+        html += `Is Cleaning: ${player.isCleaningNode}<br>`;
+        if (player.isCleaningNode) {
+          const targetNode = systemNodes.find(n => n.id === player.cleaningTargetNodeId);
+          html += `Target Node: ${targetNode?.name || 'None'}<br>`;
+          html += `Progress: ${Math.floor(player.cleaningProgress)}%<br>`;
+          const nearbyViruses = viruses.filter(v =>
+            Math.hypot(player.x - v.x, player.y - v.y) < CLEANING_CONFIG.VIRUS_INTERRUPT_DISTANCE
+          );
+          if (nearbyViruses.length > 0) {
+            html += `⚠️ Nearby Viruses: ${nearbyViruses.map(v => v.id + 1).join(', ')}<br>`;
+          }
+        }
+        debugDiv.innerHTML = html;
+      } else
+        debugDiv.style.display = 'none';
+    }
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      // ✅ NEW: Keep radar sharp on resize (or allow CSS to handle it)
+    });
+  </script>
+</body>
+
+</html>

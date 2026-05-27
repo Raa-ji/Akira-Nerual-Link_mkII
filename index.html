@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neural Link - Virus Defense</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="main.js"></script>
+</head>
+
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div class="scanlines"></div>
+  <div class="crt-glow"></div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <h3>Neural Link Established</h3>
+    <div class="stat-row"><span class="stat-label">HEALTH:</span><span class="stat-value" id="healthText">100%</span></div>
+    <div id="healthBar">
+      <div id="healthFill" style="width: 100%;"></div>
+    </div>
+    <div class="stat-row"><span class="stat-label">NODES SECURE:</span><span class="stat-value" id="nodesSecureText">5/5</span></div>
+    <div class="stat-row"><span class="stat-label">VIRUSES ACTIVE:</span><span class="stat-value" id="virusesActiveText">3</span></div>
+
+    <!-- Infection Effects Warning Section -->
+    <div id="infectionEffectsSection"></div>
+
+    <div id="captureStatusSection"></div>
+    <div class="rule-section">
+      <div class="rule-title">TOGGLE RULES (Press to flip):</div>
+      <div id="toggleRules"></div>
+    </div>
+    <div class="rule-section">
+      <div class="rule-title">DURATION RULES:</div>
+      <div id="durationRules"></div>
+    </div>
+  </div>
+
+  <!-- Help Overlay -->
+  <div id="helpOverlay">
+    <h2>NEURAL LINK - CONTROLS</h2>
+    <div class="content-columns">
+      <div class="column">
+        <div class="section">
+          <h4>MOVEMENT</h4>
+          <ul>
+            <li><strong>W / Up:</strong> Move Forward</li>
+            <li><strong>S / Down:</strong> Move Backward</li>
+            <li><strong>A / Left:</strong> Strafe Left</li>
+            <li><strong>D / Right:</strong> Strafe Right</li>
+            <li><strong>Q + ← (ArrowLeft):</strong> Turn Left</li>
+            <li><strong>E + →:</strong> Turn Right</li>
+          </ul>
+        </div>
+        <div class="section">
+          <h4>RULES (1-5) - ALL AVAILABLE!</h4>
+          <p><strong>TOGGLE RULES:</strong> Press to activate/deactivate. Stay ON until toggled OFF.</p>
+          <ul>
+            <li><strong>[1]</strong> FIREWALL IS WALL - Firewalls become solid barriers</li>
+            <li><strong>[2]</strong> NODES ARE LOCKED - Nodes cannot be infected (or interacted with)</li>
+            <li style="color: #FFA500;"><em>*Locked nodes also block infection effects!</em></li>
+          </ul>
+        </div>
+        <div class="section">
+          <h4>DURATION RULES:</h4>
+          <p>Activate for fixed time, then enter cooldown before reuse.</p>
+          <ul>
+            <li><strong>[3]</strong> VIRUS IS STOP - Viruses freeze (3.5s) | 52.5s CD</li>
+            <li><strong>[4]</strong> VIRUS IS SLOW - Viruses move at 60% speed (8s) | 20s CD</li>
+            <li><strong>[5]</strong> COOLANT IS SAFE - Coolant heals you (6s) | 12s CD</li>
+          </ul>
+        </div>
+        <div class="section">
+          <h4>CAPTURE & QUARANTINE</h4>
+          <ul>
+            <li><strong>[C]</strong> Capture Virus (when nearby)</li>
+            <li><strong>[V] alone:</strong> Start Quarantine Sequence (hold still for 20s)</li>
+          </ul>
+        </div>
+      </div>
+      <div class="column">
+        <div class="section">
+          <h4>CLEANING INFECTED NODES ⚡</h4>
+          <p><strong>AUTO-TRIGGER:</strong> Stand directly on an infected node to begin cleaning.</p>
+          <ul>
+            <li>Hold position for ~8 seconds (124 config) to clean the infection</li>
+            <li>Moving too far away will cancel progress</li>
+            <li>Viruses nearby can interrupt your cleaning!</li>
+            <li><strong>Note:</strong> Locked nodes (Rule [2]) cannot be cleaned or apply effects</li>
+          </ul>
+        </div>
+        <div class="section">
+          <h4>⚠️ INFECTION EFFECTS - HARDWARE FAILURE ⚠️</h4>
+          <p>Your cybernetic implants are failing! Each infected node causes system-wide effects:</p>
+          <ul>
+            <li><strong>Motor Control (Node 0):</strong> Movement speed reduced by 50%</li>
+            <li><strong>Visual Processor (Node 1):</strong> Screen shake + visual distortion</li>
+            <li><strong>Auditory Processing (Node 2):</strong> RGB static/color interference</li>
+            <li><strong>Neural Link (Node 3):</strong> Toggle rules have delayed activation!</li>
+            <li><strong>Life Support (Node 4):</strong> Health drains (-0.5 HP/sec) + healing blocked</li>
+          </ul>
+          <p style="color: #FFA500; margin-top: 8px;"><em>*Effects stack! Multiple infections = worse penalties!</em></p>
+        </div>
+        <div class="section">
+          <h4>💚 HEALING SYSTEM</h4>
+          <ul>
+            <li><strong>Life Support Node:</strong> Stand on it to heal (+2 HP/sec when secure)</li>
+            <li><strong>Coolant Tiles:</strong> Heal with Rule [5] "COOLANT IS SAFE" active</li>
+            <li style="color: #FF4400;"><em>*Life Support infection blocks ALL healing!</em></li>
+          </ul>
+        </div>
+        <div class="section">
+          <h4>OBJECTIVE</h4>
+          <p>Capture and quarantine all 3 viruses while protecting at least 4 of 5 system nodes.</p>
+        </div>
+      </div>
+    </div>
+    <div style="text-align: center; margin-top: 20px;"><button onclick="toggleHelp()" style="padding: 10px 30px; background: #FF1493; color: #000; border: none; cursor: pointer;">CLOSE</button></div>
+  </div>
+
+  <!-- Debug Overlay -->
+  <div id="debugOverlay"></div>
+
+  <!-- MINI-MAP (RADAR) -->
+  <div id="radar-container">
+    <div id="radar-header">SECTOR RADAR</div>
+    <!-- This canvas is small internally but scaled up by CSS for a crisp "low-res" look -->
+    <canvas id="miniMapCanvas" width="130" height="90"></canvas>
+  </div>
+
+  <!-- Start Screen -->
+  <div id="startScreen">
+    <h1>NEURAL LINK</h1>
+    <p>Your neural implants have been infected by malicious code.</p>
+    <p>Navigate through your body's virtual system network and protect critical nodes from virus infection. Use rule manipulation to control the battlefield - but beware, viruses can manipulate certain rules too!</p>
+    <button id="startButton" onclick="startGame()">INITIALIZE</button>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+
+</html>
