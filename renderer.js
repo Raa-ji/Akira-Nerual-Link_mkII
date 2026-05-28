@@ -9,6 +9,7 @@
 
 // Import configuration constants
 import { CANVAS_WIDTH, CANVAS_HEIGHT, MAP_SIZE, TILE_SIZE, MAX_DEPTH, FOV, RAY_COUNT, COLORS, TILE, RULES } from './config.js';
+import { levelMap } from './mapData.js';
 
 /**
  * Renderer class handling all canvas drawing operations

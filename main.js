@@ -36,6 +36,11 @@ document.addEventListener('DOMContentLoaded', () => {
     gameEngine.startGame();
   });
 
+  // Close help button handler
+  document.getElementById('closeHelpButton').addEventListener('click', () => {
+    gameEngine.toggleHelp();
+  });
+
   // Window resize handler
   window.addEventListener('resize', () => {
     canvas.width = window.innerWidth;

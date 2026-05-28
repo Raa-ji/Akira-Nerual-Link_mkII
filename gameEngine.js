@@ -58,11 +58,11 @@ export default class GameEngine {
    * Initialize all game entities and state
    */
   initializeGame() {
-    // Initialize rules manager
-    this.rulesManager = new RulesManager(RULES);
-    
-    // Initialize player
+    // Initialize player first (so we can pass it to rules manager)
     this.player = new Player(7.5, 1.5, Math.PI / 2);
+    
+    // Initialize rules manager (passes player for shared state)
+    this.rulesManager = new RulesManager(RULES, this.player);
     
     // Initialize viruses
     this.viruses = [
@@ -97,12 +97,8 @@ export default class GameEngine {
    * Initialize player state at game start
    */
   initializePlayerState() {
-    RULES.forEach(rule => {
-      this.player.toggleStates[rule.id] = false;
-      this.player.durationTimers[rule.id] = 0;
-      this.player.lastActivationTime[rule.id] = 0;
-    });
-
+    // RulesManager handles toggleStates, durationTimers, lastActivationTime initialization
+    
     // Start with firewalls ON and a cooldown
     this.player.toggleStates[1] = true;
     this.player.toggleStates['cooldown_1'] = 5;
@@ -405,7 +401,7 @@ export default class GameEngine {
     // Handle rule activation keys (1-5 for player)
     for (let i = 1; i <= RULES.length; i++) {
       if (this.keys[String(i)] === true) {
-        this.rulesManager.activateRule(i, 'player');
+        this.rulesManager.activateRule(i, 'player', this.systemNodes);
       }
     }
   }

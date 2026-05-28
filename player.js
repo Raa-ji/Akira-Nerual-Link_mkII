@@ -53,6 +53,11 @@ export default class Player {
     this.pendingToggleRules = {};
     this.toggleDelayTimers = {};
     
+    // Neural Link rule states (populated by game engine at start)
+    this.toggleStates = {};
+    this.durationTimers = {};
+    this.lastActivationTime = {};
+    
     // Configuration references
     this.virusDamageConfig = VIRUS_DAMAGE_CONFIG;
     this.captureConfig = CAPTURE_CONFIG;

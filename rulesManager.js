@@ -8,21 +8,26 @@
 export default class RulesManager {
   /**
    * @param {Array} rules - Array of rule configuration objects
+   * @param {object} player - Player object whose state we manage
    */
-  constructor(rules) {
+  constructor(rules, player) {
     this.rules = rules;
-    this.toggleStates = {}; // Track toggle rules: id -> boolean
-    this.durationTimers = {}; // Track duration timers: id -> number (positive: active, negative: cooldown, 0: ready)
-    this.pendingToggleRules = {}; // Track pending toggle states during Neural Link delay
-    this.toggleDelayTimers = {}; // Track delay timers for Neural Link
-    this.lastActivationTime = {}; // Track when rules were last activated (for HUD)
+    this.player = player;
+    // Use player's state directly instead of maintaining separate state
+    this.toggleStates = player.toggleStates;
+    this.durationTimers = player.durationTimers;
+    this.pendingToggleRules = player.pendingToggleRules;
+    this.toggleDelayTimers = player.toggleDelayTimers;
+    this.lastActivationTime = player.lastActivationTime;
     
-    // Initialize all rules
-    rules.forEach(rule => {
-      this.toggleStates[rule.id] = false;
-      this.durationTimers[rule.id] = 0;
-      this.lastActivationTime[rule.id] = 0;
-    });
+    // Initialize player state if not already done
+    if (Object.keys(this.toggleStates).length === 0) {
+      rules.forEach(rule => {
+        this.toggleStates[rule.id] = false;
+        this.durationTimers[rule.id] = 0;
+        this.lastActivationTime[rule.id] = 0;
+      });
+    }
   }
 
   /**
@@ -78,9 +83,10 @@ export default class RulesManager {
    * Activate a rule.
    * @param {number} ruleId - The ID of the rule to activate
    * @param {string} activator - 'player' or 'virus' (for virus-specific logic)
+   * @param {Array} systemNodes - Array of system node instances (for Neural Link check)
    * @returns {boolean} True if rule was activated, false otherwise
    */
-  activateRule(ruleId, activator = 'player') {
+  activateRule(ruleId, activator = 'player', systemNodes = []) {
     const rule = this.rules.find(r => r.id === ruleId);
     if (!rule) return false;
     
@@ -111,8 +117,13 @@ export default class RulesManager {
     if (!canUse) return false;
     
     // Apply Neural Link toggle delay for player-activated toggle rules
-    const ruleBlock = this.getRuleBlockForNeuralLink();
-    if (rule.type === "TOGGLE" && activator === 'player' && ruleBlock && ruleBlock.infectedNode3) {
+    // Need to pass systemNodes and toggleStates to check for Neural Link infection
+    // This will be handled by the caller passing the required context
+    const isLocked = this.toggleStates[2] === true; // Rule 2 (NODES ARE LOCKED)
+    const neuralLinkNode = systemNodes ? systemNodes.find(n => n.id === 3) : null;
+    const neuralLinkInfected = neuralLinkNode?.infected && !isLocked;
+    
+    if (rule.type === "TOGGLE" && activator === 'player' && neuralLinkInfected) {
       // Set pending state instead of immediate activation!
       const desiredState = !this.toggleStates[rule.id];
       this.pendingToggleRules[rule.id] = desiredState;
@@ -258,6 +269,19 @@ export default class RulesManager {
   isNeuralLinkInfected(systemNodes) {
     const node = systemNodes.find(n => n.id === 3);
     return node?.infected || false;
+  }
+
+  /**
+   * Get the Neural Link node (Node 3) for rule activation checks.
+   * @param {Array} systemNodes - Array of system node instances
+   * @param {object} toggleStates - Player's toggle states (to check if Rule 2 is active)
+   * @returns {object|null} The Neural Link node if infected and not locked, null otherwise
+   */
+  getRuleBlockForNeuralLink(systemNodes, toggleStates) {
+    const node = systemNodes.find(n => n.id === 3);
+    // Node 3 is locked if Rule 2 (NODES ARE LOCKED) is active
+    const isLocked = toggleStates?.[2] === true;
+    return node?.infected && !isLocked ? node : null;
   }
 
   /**
