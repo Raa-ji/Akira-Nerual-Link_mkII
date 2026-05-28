@@ -8,7 +8,7 @@
 "use strict";
 
 // Import configuration constants
-import { TILE, COLORS, INFECTION_EFFECTS_CONFIG, HEALING_CONFIG, TILE_SIZE } from './config.js';
+import { TILE, COLORS, INFECTION_EFFECTS_CONFIG, HEALING_CONFIG, TILE_SIZE, VIRUS_DAMAGE_CONFIG, CAPTURE_CONFIG, CLEANING_CONFIG } from './config.js';
 
 /**
  * Player class handling position, movement, health, and infection effects
@@ -52,6 +52,12 @@ export default class Player {
     // Neural Link toggle delay system
     this.pendingToggleRules = {};
     this.toggleDelayTimers = {};
+    
+    // Configuration references
+    this.virusDamageConfig = VIRUS_DAMAGE_CONFIG;
+    this.captureConfig = CAPTURE_CONFIG;
+    this.cleaningConfig = CLEANING_CONFIG;
+    this.healingConfig = HEALING_CONFIG;
     
     // Infection effects state (populated by rules manager)
     this.infectionStates = null;
