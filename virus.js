@@ -21,6 +21,8 @@ export default class Virus {
     this.activationCooldowns = {};
     this.targetRuleId = null;
     this.targetNodeId = null;
+    this.fallbackHuntTimer = 0;
+    this.inFallbackHuntMode = false;
   }
 
   /**
@@ -49,6 +51,15 @@ export default class Virus {
     // HUNT MODE: Chase player aggressively
     if (huntModeActive && !player.isQuarantining) {
       this.huntPlayer(dt, player, checkCollision, effectiveSpeed, tryDealPlayerDamage, virusDamageConfig, tileSize);
+      return;
+    }
+
+    // Update fallback hunt timer
+    this.updateFallbackHunt(dt, systemNodes, checkCollision, tileSize, rulesManager);
+
+    // If in fallback hunt mode, hunt player instead of targeting nodes
+    if (this.inFallbackHuntMode) {
+      this.huntPlayerFallback(dt, player, checkCollision, effectiveSpeed, tryDealPlayerDamage, virusDamageConfig, tileSize);
       return;
     }
 
@@ -96,32 +107,114 @@ export default class Virus {
   huntPlayer(dt, player, checkCollision, effectiveSpeed, tryDealPlayerDamage, virusDamageConfig, tileSize) {
     const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
     
-    // Only hunt if player is within detection range
-    if (distToPlayer < tileSize * 20) {
-      const huntEffectiveSpeed = effectiveSpeed * 1.75;
-      const dx = player.x - this.x;
-      const dy = player.y - this.y;
-      const distance = Math.hypot(dx, dy);
+    const huntEffectiveSpeed = effectiveSpeed * 1.75;
+    const dx = player.x - this.x;
+    const dy = player.y - this.y;
+    const distance = Math.hypot(dx, dy);
+    
+    if (distance > 10) { // Only move if not extremely close
+      const moveX = (dx / distance) * huntEffectiveSpeed;
+      const moveY = (dy / distance) * huntEffectiveSpeed;
       
-      if (distance > 10) { // Only move if not extremely close
-        const moveX = (dx / distance) * huntEffectiveSpeed;
-        const moveY = (dy / distance) * huntEffectiveSpeed;
-        
-        let newX = this.x + moveX;
-        let newY = this.y + moveY;
-        
-        if (!checkCollision(newX, this.y)) {
-          this.x = newX;
-        } else if (!checkCollision(this.x, newY)) {
-          this.y = newY;
+      // Try diagonal movement first
+      if (!checkCollision(this.x + moveX, this.y + moveY)) {
+        this.x += moveX;
+        this.y += moveY;
+      } else {
+        // Wall sliding: try moving along each axis separately
+        if (!checkCollision(this.x + moveX, this.y)) {
+          this.x += moveX;
+        } else if (!checkCollision(this.x, this.y + moveY)) {
+          this.y += moveY;
         }
       }
+    }
+    
+    // Deal damage to player if touching
+    const distToPlayerFinal = Math.hypot(this.x - player.x, this.y - player.y);
+    if (distToPlayerFinal < virusDamageConfig.HITBOX_RADIUS) {
+      tryDealPlayerDamage(this);
+    }
+  }
+
+  /**
+   * Update fallback hunt timer and handle state transitions.
+   * @param {number} dt - Delta time in seconds
+   * @param {Array} systemNodes - Array of system node instances
+   * @param {Function} checkCollision - Collision checking function
+   * @param {number} tileSize - Size of one tile in pixels
+   * @param {object} rulesManager - RulesManager instance
+   */
+  updateFallbackHunt(dt, systemNodes, checkCollision, tileSize, rulesManager) {
+    if (this.inFallbackHuntMode) {
+      this.fallbackHuntTimer -= dt;
       
-      // Deal damage to player if touching
-      const distToPlayerFinal = Math.hypot(this.x - player.x, this.y - player.y);
-      if (distToPlayerFinal < virusDamageConfig.HITBOX_RADIUS) {
-        tryDealPlayerDamage(this);
+      // Only switch back to node targeting when timer expires AND there are reachable nodes
+      if (this.fallbackHuntTimer <= 0) {
+        // Check if there are any reachable uninfected nodes
+        let hasReachableNode = false;
+        for (const node of systemNodes) {
+          if (!node.infected && !rulesManager.isRuleActive(2)) {
+            if (this.hasLineOfSight(this.x, this.y, node.x, node.y, tileSize, checkCollision)) {
+              hasReachableNode = true;
+              break;
+            }
+          }
+        }
+        
+        if (hasReachableNode) {
+          this.inFallbackHuntMode = false;
+          this.fallbackHuntTimer = 0;
+        } else {
+          // Still no reachable nodes, keep timer at 0 to stay in fallback hunt mode
+          this.fallbackHuntTimer = 0;
+        }
       }
+    }
+  }
+
+  /**
+   * Hunt the player in fallback mode (when no nodes are reachable).
+   * Same logic as huntPlayer but used when nodes are unavailable.
+   * @param {number} dt - Delta time
+   * @param {object} player - Player instance
+   * @param {Function} checkCollision - Collision checking function
+   * @param {number} effectiveSpeed - Calculated movement speed
+   * @param {Function} tryDealPlayerDamage - Damage function
+   * @param {object} virusDamageConfig - Damage configuration
+   * @param {number} tileSize - Size of one tile in pixels
+   */
+  huntPlayerFallback(dt, player, checkCollision, effectiveSpeed, tryDealPlayerDamage, virusDamageConfig, tileSize) {
+    const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
+    
+    // Always hunt player in fallback mode (no range limit)
+    const huntEffectiveSpeed = effectiveSpeed * 1.75;
+    const dx = player.x - this.x;
+    const dy = player.y - this.y;
+    const distance = Math.hypot(dx, dy);
+    
+    if (distance > 10) { // Only move if not extremely close
+      const moveX = (dx / distance) * huntEffectiveSpeed;
+      const moveY = (dy / distance) * huntEffectiveSpeed;
+      
+      // Try diagonal movement first
+      if (!checkCollision(this.x + moveX, this.y + moveY)) {
+        this.x += moveX;
+        this.y += moveY;
+      } else {
+        // Wall sliding: try moving along each axis separately
+        if (!checkCollision(this.x + moveX, this.y)) {
+          this.x += moveX;
+        } else if (!checkCollision(this.x, this.y + moveY)) {
+          this.y += moveY;
+        }
+      }
+    }
+    
+    // Deal damage to player if touching
+    const distToPlayerFinal = Math.hypot(this.x - player.x, this.y - player.y);
+    if (distToPlayerFinal < virusDamageConfig.HITBOX_RADIUS) {
+      tryDealPlayerDamage(this);
     }
   }
 
@@ -215,30 +308,39 @@ export default class Virus {
       }
     }
 
-    if (target) {
-      this.targetNodeId = target.id;
-      const dx = target.x - this.x;
-      const dy = target.y - this.y;
-      const distance = Math.hypot(dx, dy);
+    // If no reachable uninfected nodes found, switch to fallback hunt mode
+    if (!target) {
+      this.inFallbackHuntMode = true;
+      this.fallbackHuntTimer = 2.0; // 2 second cooldown before returning to nodes
+      return;
+    }
+
+    this.targetNodeId = target.id;
+    const dx = target.x - this.x;
+    const dy = target.y - this.y;
+    const distance = Math.hypot(dx, dy);
+    
+    if (distance > 10) {
+      const moveX = (dx / distance) * effectiveSpeed;
+      const moveY = (dy / distance) * effectiveSpeed;
       
-      if (distance > 10) {
-        const moveX = (dx / distance) * effectiveSpeed;
-        const moveY = (dy / distance) * effectiveSpeed;
-        
-        let newX = this.x + moveX;
-        let newY = this.y + moveY;
-        
-        if (!checkCollision(newX, this.y)) {
-          this.x = newX;
-        } else if (!checkCollision(this.x, newY)) {
-          this.y = newY;
-        }
+      // Try diagonal movement first
+      if (!checkCollision(this.x + moveX, this.y + moveY)) {
+        this.x += moveX;
+        this.y += moveY;
       } else {
-        // Infect the node!
-        if (!rulesManager.isRuleActive(2)) {
-          target.infected = true;
-          this.targetNodeId = null;
+        // Wall sliding: try moving along each axis separately
+        if (!checkCollision(this.x + moveX, this.y)) {
+          this.x += moveX;
+        } else if (!checkCollision(this.x, this.y + moveY)) {
+          this.y += moveY;
         }
+      }
+    } else {
+      // Infect the node!
+      if (!rulesManager.isRuleActive(2)) {
+        target.infected = true;
+        this.targetNodeId = null;
       }
     }
   }

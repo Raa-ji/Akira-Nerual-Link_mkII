@@ -67,8 +67,8 @@ export default class GameEngine {
     // Initialize viruses
     this.viruses = [
       new Virus(0, 8.5 * TILE_SIZE, 1.5 * TILE_SIZE, 64),
-      new Virus(1, 20 * TILE_SIZE, 30 * TILE_SIZE, 64),
-      new Virus(2, 40 * TILE_SIZE, 45 * TILE_SIZE, 64)
+      new Virus(1, 21 * TILE_SIZE, 30 * TILE_SIZE, 64),  // Changed from 20 to 21 to avoid FIREWALL tile
+      new Virus(2, 42 * TILE_SIZE, 45 * TILE_SIZE, 64)   // Changed from 40 to 42 to avoid TUTORIAL_WALL and ALTERNATE_WALL tiles
     ];
     
     // Initialize system nodes
@@ -466,135 +466,19 @@ export default class GameEngine {
    */
   updateVirusAI(dt) {
     this.viruses.forEach(virus => {
-      virus.stopped = false;
-      virus.slowed = false;
-
-      const effectiveSpeed = (virus.stopped ? 0 : (virus.slowed ? virus.speed * 0.5 : virus.speed)) * dt;
-
-      // HUNT MODE: Chase player aggressively
-      if (this.player.huntModeActive && !this.player.isQuarantining) {
-        const distToPlayer = Math.hypot(virus.x - this.player.x, virus.y - this.player.y);
-        if (distToPlayer < TILE_SIZE * 20) {
-          const huntEffectiveSpeed = effectiveSpeed * 1.75;
-          const dx = this.player.x - virus.x;
-          const dy = this.player.y - virus.y;
-          const distance = Math.hypot(dx, dy);
-
-          if (distance > 10) {
-            const moveX = (dx / distance) * huntEffectiveSpeed;
-            const moveY = (dy / distance) * huntEffectiveSpeed;
-
-            if (!this.checkCollision(virus.x + moveX, virus.y)) {
-              virus.x += moveX;
-            } else if (!this.checkCollision(virus.x, virus.y + moveY)) {
-              virus.y += moveY;
-            }
-          }
-
-          // Deal damage to player (cooldown-enforced)
-          const distToPlayerFinal = Math.hypot(virus.x - this.player.x, virus.y - this.player.y);
-          if (distToPlayerFinal < VIRUS_DAMAGE_CONFIG.HITBOX_RADIUS) {
-            this.tryDealPlayerDamage(virus);
-          }
-
-          return;
-        }
-      }
-
-      // Virus Rule Interaction Logic
-      let virusInteractedWithRule = false;
-      for (const ruleBlock of this.ruleBlocks) {
-        const distToRuleBlock = Math.hypot(virus.x - ruleBlock.x, virus.y - ruleBlock.y);
-        if (distToRuleBlock < TILE_SIZE * 2) {
-          // Rule 1: FIREWALL IS WALL
-          if (this.player.toggleStates[1] === true && (virus.activationCooldowns[1] || 0) <= 0) {
-            const virusTarget = this.player.huntModeActive ? this.player : this.systemNodes.find(n => !n.infected);
-            if (virusTarget) {
-              if (this.checkLineOfSightForSpecificTile(virus.x, virus.y, virusTarget.x, virusTarget.y, TILE.FIREWALL, true)) {
-                this.rulesManager.activateRule(1, 'virus');
-                virus.activationCooldowns[1] = RULES.find(r => r.id === 1).cooldown;
-                virusInteractedWithRule = true;
-                break;
-              }
-            }
-          }
-
-          // Rule 2: NODES ARE LOCKED
-          if (this.player.toggleStates[2] === true && (virus.activationCooldowns[2] || 0) <= 0) {
-            const targetNode = this.systemNodes.find(node => !node.infected && !this.rulesManager.isRuleActive(2));
-            if (targetNode) {
-              this.rulesManager.activateRule(2, 'virus');
-              virus.activationCooldowns[2] = RULES.find(r => r.id === 2).cooldown;
-              virusInteractedWithRule = true;
-              break;
-            }
-          }
-
-          // Rule 5: COOLANT IS SAFE
-          if (this.player.durationTimers[5] > 0 && (virus.activationCooldowns[5] || 0) <= 0) {
-            const coolantRule = RULES.find(r => r.id === 5);
-            if (coolantRule) {
-              this.player.durationTimers[5] = -coolantRule.cooldown;
-              virus.activationCooldowns[5] = coolantRule.cooldown;
-              virusInteractedWithRule = true;
-              break;
-            }
-          }
-        }
-      }
-
-      // Update virus-specific cooldowns for rules
-      for (let ruleId in virus.activationCooldowns) {
-        if (virus.activationCooldowns[ruleId] > 0) {
-          virus.activationCooldowns[ruleId] -= dt;
-        }
-      }
-
-      if (virusInteractedWithRule || virus.stopped) return;
-
-      // Target selection: uninfected nodes, then any node
-      let target = null;
-      let minDist = Infinity;
-
-      this.systemNodes.forEach(node => {
-        if (!node.infected && !this.rulesManager.isRuleActive(2)) {
-          const dist = Math.hypot(virus.x - node.x, virus.y - node.y);
-          if (dist < minDist && this.hasLineOfSight(virus.x, virus.y, node.x, node.y)) {
-            minDist = dist;
-            target = node;
-          }
-        }
-      });
-
-      if (target) {
-        virus.targetNodeId = target.id;
-        const dx = target.x - virus.x;
-        const dy = target.y - virus.y;
-        const distance = Math.hypot(dx, dy);
-
-        if (distance > 10) {
-          const moveX = (dx / distance) * effectiveSpeed;
-          const moveY = (dy / distance) * effectiveSpeed;
-
-          if (!this.checkCollision(virus.x + moveX, virus.y)) {
-            virus.x += moveX;
-          } else if (!this.checkCollision(virus.x, virus.y + moveY)) {
-            virus.y += moveY;
-          }
-        } else {
-          // Infect the node!
-          if (!this.rulesManager.isRuleActive(2)) {
-            target.infected = true;
-            virus.targetNodeId = null;
-          }
-        }
-      }
-
-      // Normal AI: also deal damage if touching player (cooldown-enforced)
-      const distToPlayer = Math.hypot(virus.x - this.player.x, virus.y - this.player.y);
-      if (distToPlayer < VIRUS_DAMAGE_CONFIG.HITBOX_RADIUS) {
-        this.tryDealPlayerDamage(virus);
-      }
+      virus.update(
+        dt,
+        this.player,
+        this.rulesManager,
+        this.systemNodes,
+        this.ruleBlocks,
+        (x, y) => this.checkCollision(x, y),
+        (virus) => this.tryDealPlayerDamage(virus),
+        this.player.huntModeActive,
+        CAPTURE_CONFIG,
+        VIRUS_DAMAGE_CONFIG,
+        TILE_SIZE
+      );
     });
   }
 
