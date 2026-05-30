@@ -66,9 +66,9 @@ export default class GameEngine {
     
     // Initialize viruses
     this.viruses = [
-      new Virus(0, 8.5 * TILE_SIZE, 1.5 * TILE_SIZE, 64),
-      new Virus(1, 21 * TILE_SIZE, 30 * TILE_SIZE, 64),  // Changed from 20 to 21 to avoid FIREWALL tile
-      new Virus(2, 42 * TILE_SIZE, 45 * TILE_SIZE, 64)   // Changed from 40 to 42 to avoid TUTORIAL_WALL and ALTERNATE_WALL tiles
+      new Virus(0, 8.5 * TILE_SIZE, 1.5 * TILE_SIZE, 48),
+      new Virus(1, 21 * TILE_SIZE, 30 * TILE_SIZE, 48),  // Changed from 20 to 21 to avoid FIREWALL tile
+      new Virus(2, 42 * TILE_SIZE, 45 * TILE_SIZE, 48)   // Changed from 40 to 42 to avoid TUTORIAL_WALL and ALTERNATE_WALL tiles
     ];
     
     // Initialize system nodes
