@@ -96,6 +96,7 @@ export const HEALING_CONFIG = {
  */
 export const VIRUS_SLOW_MOVEMENT_MULTIPLIER = 0.5;
 export const VIRUS_SLOW_DAMAGE_MULTIPLIER = 0.5;
+export const VIRUS_INFECTION_TIME = 4.0; // seconds for a virus to infect a node
 
 /**
  * Rule definitions

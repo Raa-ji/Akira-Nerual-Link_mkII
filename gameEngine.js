@@ -185,6 +185,9 @@ export default class GameEngine {
     // 7. Update virus AI
     this.updateVirusAI(dt);
 
+    // 7a. Update node infection progress after viruses move
+    this.systemNodes.forEach(node => node.update(dt, this.viruses, this.rulesManager.isRuleActive(2)));
+
     // 8. Check capture cooldown reduction
     this.checkCaptureCooldownReduction();
 

@@ -8,7 +8,7 @@
 "use strict";
 
 // Import configuration constants
-import { CANVAS_WIDTH, CANVAS_HEIGHT, MAP_SIZE, TILE_SIZE, MAX_DEPTH, FOV, RAY_COUNT, COLORS, TILE, RULES } from './config.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, MAP_SIZE, TILE_SIZE, MAX_DEPTH, FOV, RAY_COUNT, COLORS, TILE, RULES, VIRUS_INFECTION_TIME } from './config.js';
 import { levelMap } from './mapData.js';
 
 /**
@@ -328,6 +328,13 @@ export default class Renderer {
             const cleaningLabelY = infectedLabelY + 20;
             this.ctx.fillText(`🧹 CLEANING: ${progressPct}%`, screenPos.x, cleaningLabelY);
           }
+        } else if (node.infectionProgress > 0 && !node.infected) {
+          const progressPct = Math.floor((node.infectionProgress / VIRUS_INFECTION_TIME) * 100);
+          const infectingFontSize = Math.max(10, Math.min(baseFontSize * 0.85, 20));
+          this.ctx.fillStyle = COLORS.ORANGE;
+          this.ctx.font = `${infectingFontSize}px 'Courier New'`;
+          const infectingLabelY = (CANVAS_HEIGHT + spriteHeight) / 2 + 8;
+          this.ctx.fillText(`⚠ INFECTING ${progressPct}%`, screenPos.x, infectingLabelY);
         } else if (nodesLocked) {
           // Draw locked indicator
           const lockedFontSize = Math.max(10, Math.min(baseFontSize * 0.85, 20));

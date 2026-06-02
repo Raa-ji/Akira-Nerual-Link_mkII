@@ -1,5 +1,7 @@
 "use strict";
 
+import { VIRUS_INFECTION_TIME } from './config.js';
+
 /**
  * SystemNode class for the Akira - Neural Link raycasting game.
  * Manages individual system nodes, their infection status, and healing properties.
@@ -34,18 +36,28 @@ export default class SystemNode {
    */
   update(dt, viruses, isNodeLocked) {
     // If nodes are locked, no infection can occur
-    if (isNodeLocked) return;
+    if (isNodeLocked) {
+      this.infectionProgress = 0;
+      return;
+    }
     
     // Check if any virus is colliding with this node to cause infection
+    let virusNearby = false;
     for (const virus of viruses) {
-      // Check distance between virus and node center
       const dist = Math.hypot(virus.x - this.x, virus.y - this.y);
-      
-      // If virus is close enough, infect the node
       if (dist < 10) { // HITBOX_RADIUS equivalent
-        this.infected = true;
+        virusNearby = true;
         break;
       }
+    }
+
+    if (virusNearby) {
+      this.infectionProgress = Math.min(this.infectionProgress + dt, VIRUS_INFECTION_TIME);
+      if (this.infectionProgress >= VIRUS_INFECTION_TIME) {
+        this.infected = true;
+      }
+    } else {
+      this.infectionProgress = 0;
     }
   }
 

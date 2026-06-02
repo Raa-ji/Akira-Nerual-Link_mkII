@@ -337,9 +337,8 @@ export default class Virus {
         }
       }
     } else {
-      // Infect the node!
+      // Begin or continue infection by staying at the target node
       if (!rulesManager.isRuleActive(2)) {
-        target.infected = true;
         this.targetNodeId = null;
       }
     }
