@@ -126,8 +126,9 @@ export const RULES = [
   {
     id: 2,
     name: "NODES ARE LOCKED",
-    type: "TOGGLE",
-    cooldown: 64 / 8
+    type: "DURATION",
+    duration: 5,
+    cooldown: 60
   },
   {
     id: 3,
