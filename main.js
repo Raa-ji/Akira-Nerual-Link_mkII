@@ -8,7 +8,7 @@
 "use strict";
 
 // Import configuration
-import { CANVAS_WIDTH, CANVAS_HEIGHT, TILE_SIZE, COLORS, TILE, RULES } from './config.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, TILE_SIZE, COLORS, TILE, RULES, MOUSE_SENSITIVITY } from './config.js';
 import { levelMap } from './mapData.js';
 
 // Import classes
@@ -39,6 +39,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Close help button handler
   document.getElementById('closeHelpButton').addEventListener('click', () => {
     gameEngine.toggleHelp();
+  });
+
+  // Canvas click handler to capture mouse
+  canvas.addEventListener('click', () => {
+    gameEngine.inputHandler.requestPointerLock(canvas);
   });
 
   // Window resize handler

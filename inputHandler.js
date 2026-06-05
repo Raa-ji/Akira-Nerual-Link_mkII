@@ -11,6 +11,9 @@
  * InputHandler class to manage keyboard input state
  */
 export default class InputHandler {
+  // Private field for mouse delta tracking
+  #mouseDelta = 0;
+
   /**
    * Initialize input handler and set up event listeners
    */
@@ -30,6 +33,39 @@ export default class InputHandler {
     document.addEventListener('keyup', (e) => {
       this.keys[e.key] = false;
     });
+
+    // Mouse movement tracking for look rotation
+    document.addEventListener('mousemove', (e) => {
+      this.#mouseDelta += e.movementX;
+    });
+  }
+
+  /**
+   * Get accumulated mouse delta and reset it
+   * @returns {number} Mouse delta (positive = right, negative = left)
+   */
+  getMouseDelta() {
+    const delta = this.#mouseDelta;
+    this.#mouseDelta = 0;
+    return delta;
+  }
+
+  /**
+   * Request pointer lock on the given canvas
+   * @param {HTMLCanvasElement} canvas - The canvas to lock pointer to
+   */
+  requestPointerLock(canvas) {
+    if (canvas.requestPointerLock) {
+      canvas.requestPointerLock();
+    }
+  }
+
+  /**
+   * Check if pointer is currently locked
+   * @returns {boolean} True if pointer is locked
+   */
+  isPointerLocked() {
+    return document.pointerLockElement !== null;
   }
 
   /**

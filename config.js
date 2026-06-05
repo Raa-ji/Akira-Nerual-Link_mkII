@@ -26,6 +26,11 @@ export const FOV = Math.PI / 3;
 export const RAY_COUNT = CANVAS_WIDTH / 4;
 
 /**
+ * Mouse sensitivity for look rotation (radians per pixel of mouse movement)
+ */
+export const MOUSE_SENSITIVITY = 0.002;
+
+/**
  * Color palette for the game
  */
 export const COLORS = {

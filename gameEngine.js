@@ -8,7 +8,7 @@
 "use strict";
 
 // Import configuration
-import { CANVAS_WIDTH, CANVAS_HEIGHT, TILE_SIZE, COLORS, TILE, RULES, VIRUS_DAMAGE_CONFIG, CAPTURE_CONFIG, CLEANING_CONFIG, INFECTION_EFFECTS_CONFIG, HEALING_CONFIG } from './config.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, TILE_SIZE, COLORS, TILE, RULES, VIRUS_DAMAGE_CONFIG, CAPTURE_CONFIG, CLEANING_CONFIG, INFECTION_EFFECTS_CONFIG, HEALING_CONFIG, MOUSE_SENSITIVITY } from './config.js';
 import { levelMap } from './mapData.js';
 
 // Import classes
@@ -42,6 +42,19 @@ export default class GameEngine {
     // Systems
     this.inputHandler = new InputHandler();
     this.renderer = new Renderer(canvas, radarCanvas);
+    
+    // Set up pointer lock change listener
+    document.addEventListener('pointerlockchange', () => {
+      if (document.pointerLockElement !== canvas) {
+        // Pointer was released (e.g., Escape key pressed or clicked outside)
+        this.isPaused = true;
+        // Show the help overlay when pointer is released
+        const overlay = document.getElementById('helpOverlay');
+        if (overlay) {
+          overlay.style.display = 'block';
+        }
+      }
+    });
     
     // Entities (will be initialized in startGame)
     this.player = null;
@@ -138,7 +151,12 @@ export default class GameEngine {
     document.getElementById('startScreen').style.display = 'none';
     this.initializeGame();
     this.gameRunning = true;
+    this.isPaused = false;
     this.lastTime = performance.now();
+    
+    // Auto-request pointer lock on game start
+    this.inputHandler.requestPointerLock(this.canvas);
+    
     requestAnimationFrame((currentTime) => this.gameLoop(currentTime));
   }
 
@@ -376,6 +394,14 @@ export default class GameEngine {
     // Apply turning
     if (turnLeft) this.player.angle -= this.player.turnSpeed * dt;
     if (turnRight) this.player.angle += this.player.turnSpeed * dt;
+
+    // Apply mouse look rotation
+    const mouseRotation = this.inputHandler.getMouseDelta() * MOUSE_SENSITIVITY;
+    this.player.angle += mouseRotation;
+
+    // Normalize angle to [0, 2π) to prevent floating-point drift
+    this.player.angle = this.player.angle % (2 * Math.PI);
+    if (this.player.angle < 0) this.player.angle += 2 * Math.PI;
 
     let dx = 0;
     let dy = 0;
@@ -1141,6 +1167,10 @@ export default class GameEngine {
     this.keys[e.key] = true;
 
     if (e.key === 'Escape') {
+      // Release pointer lock and show help overlay
+      if (document.pointerLockElement === this.canvas) {
+        document.exitPointerLock();
+      }
       this.toggleHelp();
     }
 
@@ -1171,11 +1201,22 @@ export default class GameEngine {
       this.isPaused = false;
       this.gameRunning = true;
       this.lastTime = performance.now();
+      
+      // Re-request pointer lock when resuming (only if game is running)
+      if (this.gameRunning && this.player) {
+        this.inputHandler.requestPointerLock(this.canvas);
+      }
+      
       requestAnimationFrame((time) => this.gameLoop(time));
     } else {
       overlay.style.display = 'block';
       this.isPaused = true;
       this.gameRunning = false;
+      
+      // Release pointer lock when showing help
+      if (document.pointerLockElement === this.canvas) {
+        document.exitPointerLock();
+      }
     }
   }
 
