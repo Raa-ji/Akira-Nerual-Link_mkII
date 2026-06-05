@@ -746,26 +746,32 @@ export default class Renderer {
     this.radarCtx.arc(0, 0, arrowSize / 2, 0, Math.PI * 2);
     this.radarCtx.fill();
     
-    // Draw direction indicator (head of arrow)
-    const dirOffset = 3;
+    // Draw direction indicator (arrow showing facing direction)
+    const arrowRadius = 6;
+    
+    // Calculate arrow tip position based on player angle
+    // Note: canvas Y grows downward, so negate the Y component
+    const tipX = arrowRadius * Math.cos(player.angle);
+    const tipY = -arrowRadius * Math.sin(player.angle);
+    
+    // Calculate base points for the arrow triangle (perpendicular to facing direction)
+    const baseAngle1 = player.angle + Math.PI / 2 + 0.6;
+    const baseAngle2 = player.angle - Math.PI / 2 - 0.6;
+    const baseRadius = 3;
+    const baseX1 = baseRadius * Math.cos(baseAngle1);
+    const baseY1 = -baseRadius * Math.sin(baseAngle1);
+    const baseX2 = baseRadius * Math.cos(baseAngle2);
+    const baseY2 = -baseRadius * Math.sin(baseAngle2);
+    
+    // Draw filled triangle pointing in player's direction
     this.radarCtx.beginPath();
-    this.radarCtx.moveTo(0, 0);
-    
-    // Calculate arrow angle (negate because canvas Y grows down)
-    let angle = -player.angle;
-    this.radarCtx.lineTo(
-      0 - arrowSize * Math.cos(angle + 0.5),
-      (-arrowSize) * Math.sin(angle) - dirOffset
-    );
-    this.radarCtx.lineTo(
-      0 + arrowSize * Math.cos(angle - 0.5),
-      (arrowSize) * Math.sin(angle) - dirOffset
-    );
+    this.radarCtx.moveTo(tipX, tipY);
+    this.radarCtx.lineTo(baseX1, baseY1);
+    this.radarCtx.lineTo(baseX2, baseY2);
     this.radarCtx.closePath();
-    
-    // Simple directional dot instead of complex rotation
     this.radarCtx.fillStyle = '#00FF00';
-    this.radarCtx.fillRect(-1, -2 * arrowSize + dirOffset, 2, 2);
+    this.radarCtx.fill();
+    
     this.radarCtx.restore();
     
     // Draw grid lines (optional but looks cool)
