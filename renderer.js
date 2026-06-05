@@ -196,7 +196,7 @@ export default class Renderer {
           } else if (tileType === TILE.FIREWALL && player.toggleStates[1]) {
             // Rule 1: FIREWALL IS WALL
             hitWall = true;
-            wallColor = COLORS.MAGENTA;
+            wallColor = COLORS.YELLOW;
           }
         }
       }
