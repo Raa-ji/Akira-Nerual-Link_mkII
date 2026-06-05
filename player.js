@@ -28,7 +28,7 @@ export default class Player {
     
     // Stats
     this.health = 100;
-    this.speed = 64;
+    this.speed = 80;
     this.turnSpeed = 0.8;
     
     // Movement state
