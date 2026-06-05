@@ -8,7 +8,7 @@
 "use strict";
 
 // Import configuration constants
-import { CANVAS_WIDTH, CANVAS_HEIGHT, MAP_SIZE, TILE_SIZE, MAX_DEPTH, FOV, RAY_COUNT, COLORS, TILE, RULES, VIRUS_INFECTION_TIME } from './config.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, MAP_SIZE, TILE_SIZE, MAX_DEPTH, FOV, RAY_COUNT, COLORS, TILE, RULES, VIRUS_INFECTION_TIME, FALSE_ALERT_CONFIG } from './config.js';
 import { levelMap } from './mapData.js';
 
 /**
@@ -61,6 +61,9 @@ export default class Renderer {
     
     // Apply visual infection effects (screen shake, RGB static)
     this.applyVisualInfectionEffects(infectionStates);
+    
+    // Render false proximity alerts (Auditory Processing debuff)
+    this.renderFalseAlerts(player, viruses);
     
     // Render mini-map radar
     this.drawMiniMap(player, levelMap, systemNodes);
@@ -496,6 +499,81 @@ export default class Renderer {
       }
       this.ctx.restore();
     }
+  }
+
+  /**
+   * Render false proximity alerts (Auditory Processing debuff)
+   * @param {object} player - Player instance
+   * @param {Array} viruses - Array of virus instances
+   */
+  renderFalseAlerts(player, viruses) {
+    if (!player.falseAlertActive) return;
+
+    // Calculate fade alpha: start at 0.8, decay to 0 over the alert's duration
+    const elapsed = FALSE_ALERT_CONFIG.DURATION - player.falseAlertTimer;
+    const alpha = Math.max(0, 0.8 * (1 - elapsed / FALSE_ALERT_CONFIG.DURATION));
+    
+    if (alpha <= 0) return;
+
+    // Pick a random screen position (20%–80% of screen width/height)
+    // Pick once when alert starts and keep it fixed
+    if (!player.falseAlertScreenX || !player.falseAlertScreenY) {
+      player.falseAlertScreenX = CANVAS_WIDTH * (0.2 + Math.random() * 0.6);
+      player.falseAlertScreenY = CANVAS_HEIGHT * (0.2 + Math.random() * 0.6);
+    }
+
+    // Offset toward nearest virus if any is within ~3 tiles
+    let nearestVirus = null;
+    let minDist = TILE_SIZE * 3;
+    
+    viruses.forEach(virus => {
+      const dist = Math.hypot(player.x - virus.x, player.y - virus.y);
+      if (dist < minDist) {
+        minDist = dist;
+        nearestVirus = virus;
+      }
+    });
+
+    if (nearestVirus) {
+      // Calculate angle from player to virus
+      const dx = nearestVirus.x - player.x;
+      const dy = nearestVirus.y - player.y;
+      const angle = Math.atan2(dy, dx);
+      
+      // Shift indicator slightly in that direction (10-20% of screen width/height)
+      const offsetDist = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.15;
+      player.falseAlertScreenX += Math.cos(angle) * offsetDist;
+      player.falseAlertScreenY += Math.sin(angle) * offsetDist;
+    }
+
+    // Draw a red pulsing dot (same visual pattern as virus sprites)
+    const pulse = Math.sin(Date.now() / 100) * 3;
+    const indicatorSize = 20;
+
+    this.ctx.save();
+    this.ctx.globalAlpha = alpha;
+    this.ctx.fillStyle = COLORS.RED;
+    this.ctx.shadowBlur = 20;
+    this.ctx.shadowColor = COLORS.RED;
+    
+    this.ctx.beginPath();
+    this.ctx.arc(
+      player.falseAlertScreenX,
+      player.falseAlertScreenY,
+      indicatorSize + pulse,
+      0,
+      Math.PI * 2
+    );
+    this.ctx.fill();
+    this.ctx.shadowBlur = 0;
+
+    // Draw text below it: "⚠ PROXIMITY ALERT" in red, fading with alpha
+    this.ctx.fillStyle = COLORS.RED;
+    this.ctx.font = 'bold 16px Courier New';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('⚠ PROXIMITY ALERT', player.falseAlertScreenX, player.falseAlertScreenY + indicatorSize + 20);
+    
+    this.ctx.restore();
   }
 
   /**

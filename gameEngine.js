@@ -8,7 +8,7 @@
 "use strict";
 
 // Import configuration
-import { CANVAS_WIDTH, CANVAS_HEIGHT, TILE_SIZE, COLORS, TILE, RULES, VIRUS_DAMAGE_CONFIG, CAPTURE_CONFIG, CLEANING_CONFIG, INFECTION_EFFECTS_CONFIG, HEALING_CONFIG, MOUSE_SENSITIVITY } from './config.js';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, TILE_SIZE, COLORS, TILE, RULES, VIRUS_DAMAGE_CONFIG, CAPTURE_CONFIG, CLEANING_CONFIG, INFECTION_EFFECTS_CONFIG, HEALING_CONFIG, MOUSE_SENSITIVITY, FALSE_ALERT_CONFIG } from './config.js';
 import { levelMap } from './mapData.js';
 
 // Import classes
@@ -88,7 +88,7 @@ export default class GameEngine {
     this.systemNodes = [
       new SystemNode(0, "Motor Control", 58 * TILE_SIZE, 40 * TILE_SIZE, COLORS.NEON_PINK, "MOTOR FAILURE"),
       new SystemNode(1, "Visual Processor", 21 * TILE_SIZE, 32 * TILE_SIZE, COLORS.YELLOW, "VISUAL DISTORTION"),
-      new SystemNode(2, "Auditory Processing", 15 * TILE_SIZE, 52 * TILE_SIZE, COLORS.CYAN, "AUDIO STATIC"),
+      new SystemNode(2, "Auditory Processing", 15 * TILE_SIZE, 52 * TILE_SIZE, COLORS.CYAN, "PHANTOM SIGNALS"),
       new SystemNode(3, "Neural Link", 35 * TILE_SIZE, 41 * TILE_SIZE, COLORS.MAGENTA, "COGNITIVE DELAY"),
       new SystemNode(4, "Life Support", 62 * TILE_SIZE, 3 * TILE_SIZE, COLORS.LIME_GREEN, "LIFE SUPPORT FAILURE")
     ];
@@ -194,6 +194,9 @@ export default class GameEngine {
     // 4. Apply node infection effects
     this.applyNodeInfectionEffects(dt);
 
+    // 4a. Update false proximity alerts (Auditory Processing debuff)
+    this.updateFalseAlerts(dt);
+
     // 5. Handle input
     this.handleInput(dt);
 
@@ -286,6 +289,44 @@ export default class GameEngine {
   }
 
   /**
+   * Update false proximity alerts (Auditory Processing debuff)
+   * @param {number} dt - Delta time in seconds
+   */
+  updateFalseAlerts(dt) {
+    const auditoryProcessingInfected = this.player.infectionStates?.auditoryProcessing;
+    const nodesLocked = this.rulesManager.isRuleActive(2);
+
+    // Only run the timer when Auditory Processing is infected AND Rule 2 is NOT active
+    if (!auditoryProcessingInfected || nodesLocked) {
+      this.player.falseAlertActive = false;
+      this.player.falseAlertScreenX = null;
+      this.player.falseAlertScreenY = null;
+      return;
+    }
+
+    // When falseAlertTimer <= 0: activate a fake alert
+    if (this.player.falseAlertTimer <= 0) {
+      this.player.falseAlertActive = true;
+      // Reset timer to random value between 4-8 seconds
+      this.player.falseAlertTimer = FALSE_ALERT_CONFIG.MIN_INTERVAL + 
+        Math.random() * (FALSE_ALERT_CONFIG.MAX_INTERVAL - FALSE_ALERT_CONFIG.MIN_INTERVAL);
+      // Reset screen position for new alert
+      this.player.falseAlertScreenX = null;
+      this.player.falseAlertScreenY = null;
+    }
+
+    // When falseAlertActive and timer > 0: countdown
+    if (this.player.falseAlertActive) {
+      this.player.falseAlertTimer -= dt;
+      if (this.player.falseAlertTimer <= 0) {
+        this.player.falseAlertActive = false;
+        this.player.falseAlertScreenX = null;
+        this.player.falseAlertScreenY = null;
+      }
+    }
+  }
+
+  /**
    * Apply infection effects from all infected nodes
    * @param {number} dt - Delta time in seconds
    */
@@ -346,6 +387,14 @@ export default class GameEngine {
 
       // Prevent negative health
       if (this.player.health < 0) this.player.health = 0;
+    }
+
+    // Reset false alert timer when Auditory Processing becomes infected
+    if (auditoryProcessingInfected && !this.rulesManager.isRuleActive(2)) {
+      if (this.player.falseAlertTimer <= 0) {
+        this.player.falseAlertTimer = FALSE_ALERT_CONFIG.MIN_INTERVAL + 
+          Math.random() * (FALSE_ALERT_CONFIG.MAX_INTERVAL - FALSE_ALERT_CONFIG.MIN_INTERVAL);
+      }
     }
 
     // Store active effect count for HUD display
@@ -968,7 +1017,7 @@ export default class GameEngine {
           html += ' - Visual distortion active';
           break;
         case 2:
-          html += ' - Audio static interference';
+          html += ' - Phantom signals detected';
           break;
         case 3:
           html += ' - Rules activate slowly!';

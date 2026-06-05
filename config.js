@@ -104,6 +104,15 @@ export const VIRUS_SLOW_DAMAGE_MULTIPLIER = 0.5;
 export const VIRUS_INFECTION_TIME = 4.0; // seconds for a virus to infect a node
 
 /**
+ * False proximity alert configuration
+ */
+export const FALSE_ALERT_CONFIG = {
+  MIN_INTERVAL: 4,           // Minimum seconds between alerts
+  MAX_INTERVAL: 8,           // Maximum seconds between alerts
+  DURATION: 2.5              // How long each fake alert stays visible (seconds)
+};
+
+/**
  * Rule definitions
  * Format: { id, name, type, duration, cooldown }
  */

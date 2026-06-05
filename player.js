@@ -58,6 +58,10 @@ export default class Player {
     this.durationTimers = {};
     this.lastActivationTime = {};
     
+    // False proximity alert state (Auditory Processing debuff)
+    this.falseAlertActive = false;       // Is a fake alert currently displayed?
+    this.falseAlertTimer = 0;            // Countdown until next alert triggers
+    
     // Configuration references
     this.virusDamageConfig = VIRUS_DAMAGE_CONFIG;
     this.captureConfig = CAPTURE_CONFIG;
