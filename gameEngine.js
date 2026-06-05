@@ -86,11 +86,11 @@ export default class GameEngine {
     
     // Initialize system nodes
     this.systemNodes = [
-      new SystemNode(0, "Motor Control", 2.5 * TILE_SIZE, 53.5 * TILE_SIZE, COLORS.NEON_PINK, "MOTOR FAILURE"),
-      new SystemNode(1, "Visual Processor", 32 * TILE_SIZE, 10 * TILE_SIZE, COLORS.YELLOW, "VISUAL DISTORTION"),
-      new SystemNode(2, "Auditory Processing", 10 * TILE_SIZE, 40 * TILE_SIZE, COLORS.CYAN, "AUDIO STATIC"),
-      new SystemNode(3, "Neural Link", 50 * TILE_SIZE, 20 * TILE_SIZE, COLORS.MAGENTA, "COGNITIVE DELAY"),
-      new SystemNode(4, "Life Support", 45 * TILE_SIZE, 50 * TILE_SIZE, COLORS.LIME_GREEN, "LIFE SUPPORT FAILURE")
+      new SystemNode(0, "Motor Control", 58 * TILE_SIZE, 40 * TILE_SIZE, COLORS.NEON_PINK, "MOTOR FAILURE"),
+      new SystemNode(1, "Visual Processor", 21 * TILE_SIZE, 32 * TILE_SIZE, COLORS.YELLOW, "VISUAL DISTORTION"),
+      new SystemNode(2, "Auditory Processing", 15 * TILE_SIZE, 52 * TILE_SIZE, COLORS.CYAN, "AUDIO STATIC"),
+      new SystemNode(3, "Neural Link", 35 * TILE_SIZE, 41 * TILE_SIZE, COLORS.MAGENTA, "COGNITIVE DELAY"),
+      new SystemNode(4, "Life Support", 62 * TILE_SIZE, 3 * TILE_SIZE, COLORS.LIME_GREEN, "LIFE SUPPORT FAILURE")
     ];
     
     // Initialize rule blocks
