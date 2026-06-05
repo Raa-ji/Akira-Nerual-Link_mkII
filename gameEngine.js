@@ -72,7 +72,7 @@ export default class GameEngine {
    */
   initializeGame() {
     // Initialize player first (so we can pass it to rules manager)
-    this.player = new Player(7.5, 1.5, Math.PI / 2);
+    this.player = new Player(60, 4, Math.PI / 2);
     
     // Initialize rules manager (passes player for shared state)
     this.rulesManager = new RulesManager(RULES, this.player);
