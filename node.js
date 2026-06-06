@@ -43,18 +43,22 @@ export default class SystemNode {
     
     // Check if any virus is colliding with this node to cause infection
     let virusNearby = false;
+    let closestDistance = Infinity;
     for (const virus of viruses) {
       const dist = Math.hypot(virus.x - this.x, virus.y - this.y);
-      if (dist < 10) { // HITBOX_RADIUS equivalent
+      if (dist < closestDistance) {
+        closestDistance = dist;
+      }
+      if (dist < 50) { // Increased threshold to account for pathfinding tile center offsets
         virusNearby = true;
-        break;
       }
     }
 
     if (virusNearby) {
       this.infectionProgress = Math.min(this.infectionProgress + dt, VIRUS_INFECTION_TIME);
-      if (this.infectionProgress >= VIRUS_INFECTION_TIME) {
+      if (this.infectionProgress >= VIRUS_INFECTION_TIME && !this.infected) {
         this.infected = true;
+        console.log(`[INFECTION] Node ${this.name} (ID ${this.id}) infected!`);
       }
     } else {
       this.infectionProgress = 0;

@@ -79,9 +79,9 @@ export default class GameEngine {
     
     // Initialize viruses
 this.viruses = [
-  new Virus(1, 2 * TILE_SIZE, 2 * TILE_SIZE, 48),            // Top-left area
-  new Virus(2, 60 * TILE_SIZE, 3 * TILE_SIZE, 48),           // Top-right area  
-  new Virus(3, 62 * TILE_SIZE, 62 * TILE_SIZE, 48)          // Bottom-right area
+  new Virus(1, 2 * TILE_SIZE, 2 * TILE_SIZE, 250),            // Top-left area
+  new Virus(2, 60 * TILE_SIZE, 3 * TILE_SIZE, 250),           // Top-right area  
+  new Virus(3, 62 * TILE_SIZE, 62 * TILE_SIZE, 250)          // Bottom-right area
 ];
     
     // Initialize system nodes

@@ -407,14 +407,38 @@ export default class Virus {
 
         if (!isFirewallSwitch && bestNode) {
           // Set target to node and cache path
+          target = bestNode;
           this.targetNodeId = bestNode.id;
           this.targetFirewallSwitchId = null;
           this.pathCacheTimer = 0.5; // Cache path for 0.5 seconds
         } else if (!isFirewallSwitch && !bestNode) {
-          // No reachable nodes, enter fallback hunt mode
-          this.inFallbackHuntMode = true;
-          this.fallbackHuntTimer = 2.0;
-          return;
+          // Fallback: If pathfinding failed for all nodes, pick the nearest node and move directly
+          let nearestNode = null;
+          let minDist = Infinity;
+          
+          for (const node of systemNodes) {
+            if (!node.infected && !rulesManager.isRuleActive(2)) {
+              const dist = Math.hypot(this.x - node.x, this.y - node.y);
+              if (dist < minDist) {
+                minDist = dist;
+                nearestNode = node;
+              }
+            }
+          }
+          
+          if (nearestNode) {
+            // Found a reachable node via direct movement
+            target = nearestNode;
+            this.targetNodeId = nearestNode.id;
+            this.targetFirewallSwitchId = null;
+            this.currentPath = []; // Clear path for direct movement
+            this.pathCacheTimer = 0.5;
+          } else {
+            // No nodes available, enter fallback hunt mode
+            this.inFallbackHuntMode = true;
+            this.fallbackHuntTimer = 2.0;
+            return;
+          }
         }
       } else {
         // Use cached path
@@ -426,7 +450,12 @@ export default class Virus {
 
     // Follow path to target
     if (target) {
-      this.followPath(effectiveSpeed, checkCollision);
+      // If no path cached, move directly toward target
+      if (this.currentPath.length === 0) {
+        this.moveDirectlyToward(target, effectiveSpeed, checkCollision);
+      } else {
+        this.followPath(effectiveSpeed, checkCollision);
+      }
     }
   }
 
@@ -567,38 +596,18 @@ export default class Virus {
   }
 
   /**
-   * Follow the current path toward the target.
-   * @param {number} effectiveSpeed - Calculated movement speed
+   * Move directly toward a target with wall sliding fallback.
+   * Used when pathfinding is unavailable.
+   * @param {object} target - Target with {x, y} properties
+   * @param {number} effectiveSpeed - Movement speed
    * @param {Function} checkCollision - Collision checking function
    */
-  followPath(effectiveSpeed, checkCollision) {
-    if (this.currentPath.length === 0) return;
-
-    // Get the next waypoint (skip waypoints we're close to)
-    let targetWaypoint = null;
-    let waypointIndex = -1;
-
-    for (let i = 0; i < this.currentPath.length; i++) {
-      const waypoint = this.currentPath[i];
-      const dist = Math.hypot(this.x - waypoint.x, this.y - waypoint.y);
-      if (dist > 10) {
-        targetWaypoint = waypoint;
-        waypointIndex = i;
-        break;
-      }
-    }
-
-    if (!targetWaypoint) {
-      // Reached the end of the path
-      this.currentPath = [];
-      return;
-    }
-
-    const dx = targetWaypoint.x - this.x;
-    const dy = targetWaypoint.y - this.y;
+  moveDirectlyToward(target, effectiveSpeed, checkCollision) {
+    const dx = target.x - this.x;
+    const dy = target.y - this.y;
     const distance = Math.hypot(dx, dy);
 
-    if (distance > 10) {
+    if (distance > 5) {
       const moveX = (dx / distance) * effectiveSpeed;
       const moveY = (dy / distance) * effectiveSpeed;
 
@@ -614,9 +623,45 @@ export default class Virus {
           this.y += moveY;
         }
       }
+    }
+  }
+
+  /**
+   * Follow the current path toward the target.
+   * @param {number} effectiveSpeed - Calculated movement speed
+   * @param {Function} checkCollision - Collision checking function
+   */
+  followPath(effectiveSpeed, checkCollision) {
+    if (this.currentPath.length === 0) return;
+
+    // Always target the first waypoint in the path
+    const targetWaypoint = this.currentPath[0];
+
+    const dx = targetWaypoint.x - this.x;
+    const dy = targetWaypoint.y - this.y;
+    const distance = Math.hypot(dx, dy);
+
+    if (distance > 5) {
+      // Calculate movement, clamping to not exceed waypoint distance to prevent overshoot
+      const clampedSpeed = Math.min(effectiveSpeed, distance);
+      const moveX = (dx / distance) * clampedSpeed;
+      const moveY = (dy / distance) * clampedSpeed;
+
+      // Try diagonal movement first
+      if (!checkCollision(this.x + moveX, this.y + moveY)) {
+        this.x += moveX;
+        this.y += moveY;
+      } else {
+        // Wall sliding: try moving along each axis separately
+        if (!checkCollision(this.x + moveX, this.y)) {
+          this.x += moveX;
+        } else if (!checkCollision(this.x, this.y + moveY)) {
+          this.y += moveY;
+        }
+      }
     } else {
-      // Remove this waypoint and continue to next
-      this.currentPath.splice(waypointIndex, 1);
+      // Reached waypoint, remove it and continue
+      this.currentPath.shift();
     }
   }
 }
