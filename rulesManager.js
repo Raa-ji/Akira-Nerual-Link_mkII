@@ -45,7 +45,7 @@ export default class RulesManager {
           if (this.durationTimers[rule.id] <= 0) {
             this.durationTimers[rule.id] = -rule.cooldown;
           }
-        } else if (timer < 0 && timer > -1) {
+        } else if (timer < 0) {
           // Cooldown phase - counting up from -cooldown to 0
           this.durationTimers[rule.id] += dt;
           if (this.durationTimers[rule.id] >= 0) {
