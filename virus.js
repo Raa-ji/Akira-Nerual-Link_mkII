@@ -121,27 +121,36 @@ export default class Virus {
    * @param {number} tileSize - Size of one tile in pixels
    */
   huntPlayer(dt, player, checkCollision, effectiveSpeed, tryDealPlayerDamage, virusDamageConfig, tileSize) {
-    const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
-    
     const huntEffectiveSpeed = effectiveSpeed * 1.75;
-    const dx = player.x - this.x;
-    const dy = player.y - this.y;
-    const distance = Math.hypot(dx, dy);
     
-    if (distance > 10) { // Only move if not extremely close
-      const moveX = (dx / distance) * huntEffectiveSpeed;
-      const moveY = (dy / distance) * huntEffectiveSpeed;
+    // Try to find a path to the player using A* pathfinding
+    const path = findPath(this.x, this.y, player.x, player.y, tileSize, checkCollision, 64, 64);
+    
+    if (path && path.length > 0) {
+      // Use pathfinding to navigate to player
+      this.currentPath = path;
+      this.followPath(huntEffectiveSpeed, checkCollision);
+    } else {
+      // Fallback: direct chase with wall sliding if no path found
+      const dx = player.x - this.x;
+      const dy = player.y - this.y;
+      const distance = Math.hypot(dx, dy);
       
-      // Try diagonal movement first
-      if (!checkCollision(this.x + moveX, this.y + moveY)) {
-        this.x += moveX;
-        this.y += moveY;
-      } else {
-        // Wall sliding: try moving along each axis separately
-        if (!checkCollision(this.x + moveX, this.y)) {
+      if (distance > 10) { // Only move if not extremely close
+        const moveX = (dx / distance) * huntEffectiveSpeed;
+        const moveY = (dy / distance) * huntEffectiveSpeed;
+        
+        // Try diagonal movement first
+        if (!checkCollision(this.x + moveX, this.y + moveY)) {
           this.x += moveX;
-        } else if (!checkCollision(this.x, this.y + moveY)) {
           this.y += moveY;
+        } else {
+          // Wall sliding: try moving along each axis separately
+          if (!checkCollision(this.x + moveX, this.y)) {
+            this.x += moveX;
+          } else if (!checkCollision(this.x, this.y + moveY)) {
+            this.y += moveY;
+          }
         }
       }
     }
@@ -215,7 +224,7 @@ export default class Virus {
 
   /**
    * Hunt the player in fallback mode (when no nodes are reachable).
-   * Same logic as huntPlayer but used when nodes are unavailable.
+   * Uses pathfinding when available, falls back to direct chase.
    * @param {number} dt - Delta time
    * @param {object} player - Player instance
    * @param {Function} checkCollision - Collision checking function
@@ -225,28 +234,36 @@ export default class Virus {
    * @param {number} tileSize - Size of one tile in pixels
    */
   huntPlayerFallback(dt, player, checkCollision, effectiveSpeed, tryDealPlayerDamage, virusDamageConfig, tileSize) {
-    const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
-    
-    // Always hunt player in fallback mode (no range limit)
     const huntEffectiveSpeed = effectiveSpeed * 1.75;
-    const dx = player.x - this.x;
-    const dy = player.y - this.y;
-    const distance = Math.hypot(dx, dy);
     
-    if (distance > 10) { // Only move if not extremely close
-      const moveX = (dx / distance) * huntEffectiveSpeed;
-      const moveY = (dy / distance) * huntEffectiveSpeed;
+    // Try to find a path to the player using A* pathfinding
+    const path = findPath(this.x, this.y, player.x, player.y, tileSize, checkCollision, 64, 64);
+    
+    if (path && path.length > 0) {
+      // Use pathfinding to navigate to player
+      this.currentPath = path;
+      this.followPath(huntEffectiveSpeed, checkCollision);
+    } else {
+      // Fallback: direct chase with wall sliding if no path found
+      const dx = player.x - this.x;
+      const dy = player.y - this.y;
+      const distance = Math.hypot(dx, dy);
       
-      // Try diagonal movement first
-      if (!checkCollision(this.x + moveX, this.y + moveY)) {
-        this.x += moveX;
-        this.y += moveY;
-      } else {
-        // Wall sliding: try moving along each axis separately
-        if (!checkCollision(this.x + moveX, this.y)) {
+      if (distance > 10) { // Only move if not extremely close
+        const moveX = (dx / distance) * huntEffectiveSpeed;
+        const moveY = (dy / distance) * huntEffectiveSpeed;
+        
+        // Try diagonal movement first
+        if (!checkCollision(this.x + moveX, this.y + moveY)) {
           this.x += moveX;
-        } else if (!checkCollision(this.x, this.y + moveY)) {
           this.y += moveY;
+        } else {
+          // Wall sliding: try moving along each axis separately
+          if (!checkCollision(this.x + moveX, this.y)) {
+            this.x += moveX;
+          } else if (!checkCollision(this.x, this.y + moveY)) {
+            this.y += moveY;
+          }
         }
       }
     }
