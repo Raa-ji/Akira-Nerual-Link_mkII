@@ -27,9 +27,16 @@ body {
   color: #00FFFF;
   text-shadow: 0 0 10px #FF1493;
   min-width: 350px;
+  max-width: 400px;
   font-size: 12px;
   box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
   z-index: 10;
+}
+
+#hud * {
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 #hud h3 {
@@ -44,6 +51,9 @@ body {
   margin: 5px 0;
   display: flex;
   justify-content: space-between;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .stat-label {
@@ -75,6 +85,10 @@ body {
   margin: 3px 0;
   border-radius: 3px;
   background: rgba(0, 0, 0, 0.5);
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 .rule-item.ready {
@@ -115,6 +129,10 @@ body {
   background: rgba(255, 68, 0, 0.1);
   padding: 8px;
   border-radius: 3px;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 .infection-warning-title {
@@ -131,6 +149,10 @@ body {
   background: rgba(255, 68, 0, 0.2);
   border-left: 3px solid #FF4400;
   font-size: 11px;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 .infection-effect-item.critical {
