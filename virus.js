@@ -20,6 +20,7 @@ export default class Virus {
     this.x = x;
     this.y = y;
     this.speed = speed;
+    this.speedMultiplier = 1.0; // New: allows rules to modify speed cleanly
     this.stopped = false;
     this.slowed = false;
     this.activationCooldowns = {};
@@ -54,10 +55,10 @@ export default class Virus {
   update(dt, player, rulesManager, systemNodes, ruleBlocks, checkCollision, tryDealPlayerDamage, huntModeActive, huntModeEnded, captureConfig, virusDamageConfig, tileSize) {
     // Reset state flags each frame
     this.stopped = false;
-    this.slowed = false;
+    this.speedMultiplier = 1.0; // Reset multiplier each frame
     
-    // Determine effective speed based on rule states
-    const effectiveSpeed = this.calculateEffectiveSpeed(rulesManager) * dt;
+    // Determine effective speed based on rule states (base speed * multiplier)
+    const effectiveSpeed = this.calculateEffectiveSpeed(rulesManager);
 
     // HUNT MODE: Chase player aggressively
     if (huntModeActive && !player.isQuarantining) {
@@ -83,7 +84,7 @@ export default class Virus {
     this.interactWithRules(rulesManager, ruleBlocks, tileSize, dt, player, systemNodes, checkCollision);
 
     // Target nodes for infection
-    this.targetNodes(systemNodes, checkCollision, tileSize, effectiveSpeed, player, rulesManager, ruleBlocks);
+    this.targetNodes(systemNodes, checkCollision, tileSize, effectiveSpeed, dt, player, rulesManager, ruleBlocks);
 
     // Deal damage to player if touching
     this.attemptDamagePlayer(player, tryDealPlayerDamage, virusDamageConfig, tileSize);
@@ -91,6 +92,7 @@ export default class Virus {
 
   /**
    * Calculate effective movement speed based on current rule states.
+   * Returns base speed * speedMultiplier (no dt multiplication here).
    * @param {object} rulesManager - RulesManager instance
    * @returns {number} - Effective movement speed
    */
@@ -98,16 +100,16 @@ export default class Virus {
     // Rule 3: VIRUS IS STOP
     if (rulesManager.isRuleActive(3)) {
       this.stopped = true;
-      return 0;
+      this.speedMultiplier = 0;
+      return this.speed * this.speedMultiplier;
     }
 
     // Rule 4: VIRUS IS SLOW
     if (rulesManager.isRuleActive(4)) {
-      this.slowed = true;
-      return this.speed * 0.6; // 60% speed
+      this.speedMultiplier *= 0.6; // 60% speed
     }
 
-    return this.speed;
+    return this.speed * this.speedMultiplier;
   }
 
   /**
@@ -115,13 +117,14 @@ export default class Virus {
    * @param {number} dt - Delta time
    * @param {object} player - Player instance
    * @param {Function} checkCollision - Collision checking function
-   * @param {number} effectiveSpeed - Calculated movement speed
+   * @param {number} effectiveSpeed - Calculated movement speed (base speed * multiplier)
    * @param {Function} tryDealPlayerDamage - Damage function
    * @param {object} virusDamageConfig - Damage configuration
    * @param {number} tileSize - Size of one tile in pixels
    */
   huntPlayer(dt, player, checkCollision, effectiveSpeed, tryDealPlayerDamage, virusDamageConfig, tileSize) {
-    const huntEffectiveSpeed = effectiveSpeed * 1.75;
+    // Hunt mode: 1.75x speed multiplier applied here for clarity
+    const huntEffectiveSpeed = effectiveSpeed * 1.75 * dt;
     
     // Try to find a path to the player using A* pathfinding
     const path = findPath(this.x, this.y, player.x, player.y, tileSize, checkCollision, 64, 64);
@@ -228,13 +231,14 @@ export default class Virus {
    * @param {number} dt - Delta time
    * @param {object} player - Player instance
    * @param {Function} checkCollision - Collision checking function
-   * @param {number} effectiveSpeed - Calculated movement speed
+   * @param {number} effectiveSpeed - Calculated movement speed (base speed * multiplier)
    * @param {Function} tryDealPlayerDamage - Damage function
    * @param {object} virusDamageConfig - Damage configuration
    * @param {number} tileSize - Size of one tile in pixels
    */
   huntPlayerFallback(dt, player, checkCollision, effectiveSpeed, tryDealPlayerDamage, virusDamageConfig, tileSize) {
-    const huntEffectiveSpeed = effectiveSpeed * 1.75;
+    // Hunt mode: 1.75x speed multiplier applied here for clarity
+    const huntEffectiveSpeed = effectiveSpeed * 1.75 * dt;
     
     // Try to find a path to the player using A* pathfinding
     const path = findPath(this.x, this.y, player.x, player.y, tileSize, checkCollision, 64, 64);
@@ -332,12 +336,13 @@ export default class Virus {
    * @param {Array} systemNodes - Array of system node instances
    * @param {Function} checkCollision - Collision checking function
    * @param {number} tileSize - Size of one tile in pixels
-   * @param {number} effectiveSpeed - Calculated movement speed
+   * @param {number} effectiveSpeed - Calculated movement speed (base speed * multiplier)
+   * @param {number} dt - Delta time
    * @param {object} player - Player instance
    * @param {object} rulesManager - RulesManager instance
    * @param {Array} ruleBlocks - Array of rule block instances
    */
-  targetNodes(systemNodes, checkCollision, tileSize, effectiveSpeed, player, rulesManager, ruleBlocks) {
+  targetNodes(systemNodes, checkCollision, tileSize, effectiveSpeed, dt, player, rulesManager, ruleBlocks) {
     // Skip target selection if already stopped by rule or if nodes are locked
     if (this.stopped || rulesManager.isRuleActive(2)) return;
 
@@ -452,9 +457,9 @@ export default class Virus {
     if (target) {
       // If no path cached, move directly toward target
       if (this.currentPath.length === 0) {
-        this.moveDirectlyToward(target, effectiveSpeed, checkCollision);
+        this.moveDirectlyToward(target, effectiveSpeed * dt, checkCollision);
       } else {
-        this.followPath(effectiveSpeed, checkCollision);
+        this.followPath(effectiveSpeed * dt, checkCollision);
       }
     }
   }
@@ -599,17 +604,18 @@ export default class Virus {
    * Move directly toward a target with wall sliding fallback.
    * Used when pathfinding is unavailable.
    * @param {object} target - Target with {x, y} properties
-   * @param {number} effectiveSpeed - Movement speed
+   * @param {number} moveDistance - Movement distance (speed * multiplier * dt)
    * @param {Function} checkCollision - Collision checking function
    */
-  moveDirectlyToward(target, effectiveSpeed, checkCollision) {
+  moveDirectlyToward(target, moveDistance, checkCollision) {
     const dx = target.x - this.x;
     const dy = target.y - this.y;
     const distance = Math.hypot(dx, dy);
 
     if (distance > 5) {
-      const moveX = (dx / distance) * effectiveSpeed;
-      const moveY = (dy / distance) * effectiveSpeed;
+      // Apply move distance directly (already includes dt)
+      const moveX = (dx / distance) * moveDistance;
+      const moveY = (dy / distance) * moveDistance;
 
       // Try diagonal movement first
       if (!checkCollision(this.x + moveX, this.y + moveY)) {
@@ -628,10 +634,10 @@ export default class Virus {
 
   /**
    * Follow the current path toward the target.
-   * @param {number} effectiveSpeed - Calculated movement speed
+   * @param {number} moveDistance - Movement distance (speed * multiplier * dt)
    * @param {Function} checkCollision - Collision checking function
    */
-  followPath(effectiveSpeed, checkCollision) {
+  followPath(moveDistance, checkCollision) {
     if (this.currentPath.length === 0) return;
 
     // Always target the first waypoint in the path
@@ -643,9 +649,9 @@ export default class Virus {
 
     if (distance > 5) {
       // Calculate movement, clamping to not exceed waypoint distance to prevent overshoot
-      const clampedSpeed = Math.min(effectiveSpeed, distance);
-      const moveX = (dx / distance) * clampedSpeed;
-      const moveY = (dy / distance) * clampedSpeed;
+      const clampedDistance = Math.min(moveDistance, distance);
+      const moveX = (dx / distance) * clampedDistance;
+      const moveY = (dy / distance) * clampedDistance;
 
       // Try diagonal movement first
       if (!checkCollision(this.x + moveX, this.y + moveY)) {
