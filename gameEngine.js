@@ -72,25 +72,25 @@ export default class GameEngine {
    */
   initializeGame() {
     // Initialize player first (so we can pass it to rules manager)
-    this.player = new Player(60, 4, Math.PI / 2);
+    this.player = new Player(4, 60, Math.PI / 2);
     
     // Initialize rules manager (passes player for shared state)
     this.rulesManager = new RulesManager(RULES, this.player);
     
     // Initialize viruses
-    this.viruses = [
-      new Virus(2, 3 * TILE_SIZE, 1.5 * TILE_SIZE, 48),
-      new Virus(2, 62 * TILE_SIZE, 30 * TILE_SIZE, 48),  // Changed from 20 to 21 to avoid FIREWALL tile
-      new Virus(62, 62 * TILE_SIZE, 45 * TILE_SIZE, 48)   // Changed from 40 to 42 to avoid TUTORIAL_WALL and ALTERNATE_WALL tiles
-    ];
+this.viruses = [
+  new Virus(1, 2 * TILE_SIZE, 2 * TILE_SIZE, 48),            // Top-left area
+  new Virus(2, 61 * TILE_SIZE, 2 * TILE_SIZE, 48),           // Top-right area  
+  new Virus(3, 61 * TILE_SIZE, 61 * TILE_SIZE, 48)          // Bottom-right area
+];
     
     // Initialize system nodes
     this.systemNodes = [
-      new SystemNode(0, "Motor Control", 58 * TILE_SIZE, 40 * TILE_SIZE, COLORS.NEON_PINK, "MOTOR FAILURE"),
-      new SystemNode(1, "Visual Processor", 21 * TILE_SIZE, 32 * TILE_SIZE, COLORS.YELLOW, "VISUAL DISTORTION"),
-      new SystemNode(2, "Auditory Processing", 15 * TILE_SIZE, 52 * TILE_SIZE, COLORS.CYAN, "PHANTOM SIGNALS"),
-      new SystemNode(3, "Neural Link", 35 * TILE_SIZE, 41 * TILE_SIZE, COLORS.MAGENTA, "COGNITIVE DELAY"),
-      new SystemNode(4, "Life Support", 62 * TILE_SIZE, 3 * TILE_SIZE, COLORS.LIME_GREEN, "LIFE SUPPORT FAILURE")
+      new SystemNode(0, "Motor Control", 40 * TILE_SIZE, 58 * TILE_SIZE, COLORS.NEON_PINK, "MOTOR FAILURE"),
+      new SystemNode(1, "Visual Processor", 32 * TILE_SIZE, 21 * TILE_SIZE, COLORS.YELLOW, "VISUAL DISTORTION"),
+      new SystemNode(2, "Auditory Processing", 52 * TILE_SIZE, 15 * TILE_SIZE, COLORS.CYAN, "PHANTOM SIGNALS"),
+      new SystemNode(3, "Neural Link", 41 * TILE_SIZE, 35 * TILE_SIZE, COLORS.MAGENTA, "COGNITIVE DELAY"),
+      new SystemNode(4, "Life Support", 2 * TILE_SIZE, 62 * TILE_SIZE, COLORS.LIME_GREEN, "LIFE SUPPORT FAILURE")
     ];
     
     // Initialize rule blocks

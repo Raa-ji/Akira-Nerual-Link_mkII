@@ -710,7 +710,7 @@ export default class Renderer {
           // Draw based on tile type
           if (tileType === TILE.WALL || tileType === TILE.TUTORIAL_WALL) {
             this.radarCtx.fillStyle = '#647895';
-            if (tileType === TILE.TUTORIAL_WALL) this.radarCtx.fillStyle = '#2a1b3d';
+            if (tileType === TILE.TUTORIAL_WALL) this.radarCtx.fillStyle = '#b830c7';
             this.radarCtx.fillRect(px, py, pw, ph);
           } else if (tileType === TILE.FIREWALL) {
             this.radarCtx.fillStyle = '#F9E644';
@@ -750,18 +750,18 @@ export default class Renderer {
     const arrowRadius = 6;
     
     // Calculate arrow tip position based on player angle
-    // Note: canvas Y grows downward, so negate the Y component
+    // The arrow should point in the direction the player is facing
     const tipX = arrowRadius * Math.cos(player.angle);
-    const tipY = -arrowRadius * Math.sin(player.angle);
+    const tipY = arrowRadius * Math.sin(player.angle);
     
     // Calculate base points for the arrow triangle (perpendicular to facing direction)
     const baseAngle1 = player.angle + Math.PI / 2 + 0.6;
     const baseAngle2 = player.angle - Math.PI / 2 - 0.6;
     const baseRadius = 3;
     const baseX1 = baseRadius * Math.cos(baseAngle1);
-    const baseY1 = -baseRadius * Math.sin(baseAngle1);
+    const baseY1 = baseRadius * Math.sin(baseAngle1);
     const baseX2 = baseRadius * Math.cos(baseAngle2);
-    const baseY2 = -baseRadius * Math.sin(baseAngle2);
+    const baseY2 = baseRadius * Math.sin(baseAngle2);
     
     // Draw filled triangle pointing in player's direction
     this.radarCtx.beginPath();
