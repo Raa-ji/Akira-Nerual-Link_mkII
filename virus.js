@@ -266,16 +266,6 @@ export default class Virus {
             break;
           }
         }
-
-        // Rule 5: COOLANT IS SAFE
-        if (rulesManager.getDurationTimer(5) > 0 && (this.activationCooldowns[5] || 0) <= 0) {
-          const coolantRule = rulesManager.getRuleById(5);
-          if (coolantRule) {
-            rulesManager.deactivateDurationRule(5);
-            this.activationCooldowns[5] = coolantRule.cooldown;
-            break;
-          }
-        }
       }
     }
   }

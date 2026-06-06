@@ -26,7 +26,6 @@ All gameplay, rules, visuals, and mechanics must match the original v0.10 spec (
 | [2]| NODES ARE LOCKED  | Duration  | 5s active / 60s CD        | Nodes cannot be infected, cleaned, or interacted with                 |
 | [3]| VIRUS IS STOP     | Duration  | 3.5s active / 60s CD      | All viruses freeze in place            |
 | [4]| VIRUS IS SLOW     | Duration  | 8s active / 30s CD        | Viruses move at 60% speed                                              |
-| [5]| COOLANT IS SAFE   | Duration  | 6s active / 10s CD        | Coolant tiles (tile 3) heal player (+2 HP/s while standing on them)   |
 
 > ⚠️ **Important:** Rule toggles and durations must be handled by a centralized `rulesManager` class.
 
@@ -46,7 +45,7 @@ Each infected node imposes a unique penalty—effects *stack* with multiple infe
 | 3       | Neural Link       | Rule toggle activation delayed by ~1500ms                               |
 | 4       | Life Support      | -0.5 HP/sec drain AND healing blocked (coolant, nodes, etc.)          |
 
-> ✅ Healing only works on secure Life Support node (+2 HP/s) *unless* Rule [5] is active.
+> ✅ Healing only works on secure Life Support node (+2 HP/s).
 
 ### 5. TILE & ENTITY TYPES  
 Use the following tile IDs in your map data (`0` = empty, `1` = wall, etc.):
@@ -56,7 +55,7 @@ Use the following tile IDs in your map data (`0` = empty, `1` = wall, etc.):
 | 0  | EMPTY        | Walkable                                                                 |
 | 1  | WALL         | Always solid                                                             |
 | 2  | FIREWALL     | Solid *only* when Rule [1] is ON                                         |
-| 3  | COOLANT      | Heals only if Rule [5] active                                            |
+| 3  | COOLANT      | Continuously heals player                                                |
 | 4  | RULE_BLOCK   | Virus interaction point; can toggle Rule [1] OFF                         |
 | 5  | SYSTEM_NODE  | Objective node. Can be infected, cleaned, or secured                     |
 | 6–8| WALL_VARIANTS| Visual only (same collision as `WALL`)                                   |

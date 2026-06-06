@@ -143,13 +143,6 @@ export const RULES = [
     type: "DURATION",
     duration: 8,
     cooldown: 320 / 8
-  },
-  {
-    id: 5,
-    name: "COOLANT IS SAFE",
-    type: "DURATION",
-    duration: 6,
-    cooldown: 192 / 8
   }
 ];
 

@@ -221,6 +221,102 @@ export default class Renderer {
         this.ctx.shadowBlur = 0;
       }
     }
+    
+    // Draw coolant tile indicators on the floor
+    this.drawCoolantIndicators(player, levelMap);
+  }
+
+  /**
+   * Draw visual indicators for coolant tiles on the floor
+   * @param {object} player - Player instance with position and angle
+   * @param {Array} levelMap - The 64x64 map grid
+   */
+  drawCoolantIndicators(player, levelMap) {
+    const viewDistance = MAX_DEPTH * TILE_SIZE * 0.75; // Draw within 75% of max depth
+    
+    // Calculate player's tile position
+    const playerTileX = Math.floor(player.x / TILE_SIZE);
+    const playerTileY = Math.floor(player.y / TILE_SIZE);
+    
+    // Draw coolant indicators in a radius around the player
+    const drawRadius = 10; // tiles
+    
+    for (let y = -drawRadius; y <= drawRadius; y++) {
+      for (let x = -drawRadius; x <= drawRadius; x++) {
+        const mapY = playerTileY + y;
+        const mapX = playerTileX + x;
+        
+        // Bounds check
+        if (mapY < 0 || mapY >= levelMap.length || mapX < 0 || mapX >= levelMap[0].length) {
+          continue;
+        }
+        
+        // Check if this is a coolant tile
+        if (levelMap[mapY][mapX] !== TILE.COOLANT) {
+          continue;
+        }
+        
+        // Calculate world position of this tile
+        const tileWorldX = mapX * TILE_SIZE + TILE_SIZE / 2;
+        const tileWorldY = mapY * TILE_SIZE + TILE_SIZE / 2;
+        
+        // Calculate distance from player
+        const dx = tileWorldX - player.x;
+        const dy = tileWorldY - player.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Skip if too far
+        if (distance > viewDistance) {
+          continue;
+        }
+        
+        // Calculate angle from player to tile
+        const angleToTile = Math.atan2(dy, dx);
+        const angleDiff = angleToTile - player.angle;
+        
+        // Normalize angle to -PI to PI
+        let normalizedAngle = angleDiff;
+        while (normalizedAngle <= -Math.PI) normalizedAngle += Math.PI * 2;
+        while (normalizedAngle > Math.PI) normalizedAngle -= Math.PI * 2;
+        
+        // Skip if tile is behind player
+        if (Math.abs(normalizedAngle) > FOV / 2 + 0.2) {
+          continue;
+        }
+        
+        // Project to screen coordinates
+        const cosAngle = Math.cos(-player.angle);
+        const sinAngle = Math.sin(-player.angle);
+        
+        const rotatedX = dx * cosAngle - dy * sinAngle;
+        const rotatedY = dx * sinAngle + dy * cosAngle;
+        
+        if (rotatedX <= 0) continue;
+        
+        const screenX = (rotatedY / rotatedX) * (CANVAS_WIDTH / (2 * Math.tan(FOV / 2))) + CANVAS_WIDTH / 2;
+        const screenY = CANVAS_HEIGHT / 2;
+        
+        // Calculate size based on distance (smaller when farther away)
+        const size = Math.max(4, 16 / (rotatedX / TILE_SIZE));
+        
+        // Calculate fade based on distance
+        const fade = Math.max(0.2, 1 - distance / viewDistance);
+        
+        // Draw cyan circle
+        this.ctx.save();
+        this.ctx.globalAlpha = fade;
+        this.ctx.fillStyle = COLORS.CYAN;
+        this.ctx.shadowBlur = 10;
+        this.ctx.shadowColor = COLORS.CYAN;
+        
+        this.ctx.beginPath();
+        this.ctx.arc(screenX, screenY, size, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        this.ctx.shadowBlur = 0;
+        this.ctx.restore();
+      }
+    }
   }
 
   /**

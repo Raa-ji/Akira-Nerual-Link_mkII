@@ -81,7 +81,7 @@ export default class GameEngine {
 this.viruses = [
   new Virus(1, 2 * TILE_SIZE, 2 * TILE_SIZE, 48),            // Top-left area
   new Virus(2, 60 * TILE_SIZE, 3 * TILE_SIZE, 48),           // Top-right area  
-  new Virus(3, 60 * TILE_SIZE, 60 * TILE_SIZE, 48)          // Bottom-right area
+  new Virus(3, 62 * TILE_SIZE, 62 * TILE_SIZE, 48)          // Bottom-right area
 ];
     
     // Initialize system nodes
@@ -280,9 +280,6 @@ this.viruses = [
         case 4:
           // VIRUS IS SLOW
           this.viruses.forEach(virus => virus.slowed = true);
-          break;
-        case 5:
-          // COOLANT IS SAFE: Handled in checkHealingSources
           break;
       }
     });
@@ -895,15 +892,12 @@ this.viruses = [
       }
     }
 
-    // Coolant healing (only works with Rule 5 active)
+    // Coolant healing (always active)
     if (playerTileX >= 0 && playerTileX < levelMap[0].length && playerTileY >= 0 && playerTileY < levelMap.length) {
       const tileType = levelMap[playerTileY][playerTileX];
 
       if (tileType === TILE.COOLANT && this.player.health < 100) {
-        const coolantRuleActive = this.rulesManager.isRuleActive(5);
-        if (coolantRuleActive) {
-          this.player.health = Math.min(100, this.player.health + HEALING_CONFIG.COOLANT_HEAL_RATE * dt);
-        }
+        this.player.health = Math.min(100, this.player.health + HEALING_CONFIG.COOLANT_HEAL_RATE * dt);
       }
     }
   }
