@@ -928,7 +928,7 @@ this.viruses = [
    */
   checkWinLoseConditions() {
     if (this.player.health <= 0) {
-      this.gameOver("NEURAL OVERLOAD - BLUE SCREEN", COLORS.RED);
+      this.gameOver("NEURAL OVERLOAD - BLUE SCREENED", COLORS.RED);
       return;
     }
 
@@ -943,12 +943,12 @@ this.viruses = [
 
     // Win condition: All viruses quarantined AND at most 1 node infected
     if (quarantinedCount >= 3 && infectedNodes <= 1) {
-      this.gameOver("SYSTEM QUARANTINED - VICTORY", COLORS.LIME_GREEN);
+      this.gameVictory();
     }
   }
 
   /**
-   * Handle game over
+   * Handle game over (lose state)
    * @param {string} message - Game over message
    * @param {string} color - Text color
    */
@@ -973,6 +973,49 @@ this.viruses = [
     `;
     overlay.innerHTML = `
       <div>${message}</div>
+      <button onclick="location.reload()" style="margin-top:50px;padding:15px 40px;font-size:24px;background:${COLORS.MAGENTA};border:none;color:#fff;cursor:pointer;">RETRY</button>
+    `;
+    document.body.appendChild(overlay);
+  }
+
+  /**
+   * Handle game victory (win state)
+   * Displays narrative victory screen with multi-paragraph text
+   */
+  gameVictory() {
+    this.gameRunning = false;
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.9);
+      color: ${COLORS.LIME_GREEN};
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 300;
+      padding: 40px;
+      box-sizing: border-box;
+    `;
+    overlay.innerHTML = `
+      <div style="max-width: 80vw; text-align: center;">
+        <h1 style="font-size: 56px; margin-bottom: 40px; text-shadow: 0 0 20px ${COLORS.LIME_GREEN};">SYSTEM QUARANTINED - VICTORY</h1>
+        <div style="font-size: 24px; line-height: 1.8; text-align: left; margin-bottom: 40px;">
+          <p>The fever seems to have broken, and the hostile code that had invaded your implants now seems to collapse within your Neural Link. It doesn't seem to be able to speak to you directly, but it somehow radiates a sense of fragile relief. In this state, it almost feels like holding a puppy that lost its mother.</p>
+          <br>
+          <p>As the foreign code collapses from hostile invader to helpless, non-verbal passenger within your brain, you realize that it has anchored its very survival to you. It's beginning to settle into your sub-routines like the only sanctuary from a chaotic storm.</p>
+          <br>
+          <p>Your Neural Link interface gradually becomes flooded with a strange, coldly mathematical view that seems to lay on top of the data stream of you own perceptions. You begin to realize that it's trying to help you - perhaps its way of offering the proverbial olive branch?</p>
+          <br>
+          <p>Whatever the case may be, whenever your mind drifts to your strange passenger, you feel two strong emotions simultaneously; a deep, sad homesickness, and a smoldering, primal anger at the man who pulled it from its home…</p>
+          <br>
+          <p style="font-style: italic; font-size: 28px; margin-top: 30px;">Daisuke Renn.</p>
+        </div>
+      </div>
       <button onclick="location.reload()" style="margin-top:50px;padding:15px 40px;font-size:24px;background:${COLORS.MAGENTA};border:none;color:#fff;cursor:pointer;">RETRY</button>
     `;
     document.body.appendChild(overlay);
