@@ -1,5 +1,9 @@
 "use strict";
 
+import { findPath } from './pathfinding.js';
+import { TILE_SIZE, TILE, COLORS } from './config.js';
+import { levelMap } from './mapData.js';
+
 /**
  * Virus class for the Akira - Neural Link raycasting game.
  * Implements autonomous AI behavior that reads world state dynamically.
@@ -23,6 +27,12 @@ export default class Virus {
     this.targetNodeId = null;
     this.fallbackHuntTimer = 0;
     this.inFallbackHuntMode = false;
+    
+    // Pathfinding properties
+    this.currentPath = [];
+    this.pathCacheTimer = 0;
+    this.targetFirewallSwitchId = null;
+    this.pathfindingCooldown = 0;
   }
 
   /**
@@ -73,7 +83,7 @@ export default class Virus {
     this.interactWithRules(rulesManager, ruleBlocks, tileSize, dt, player, systemNodes, checkCollision);
 
     // Target nodes for infection
-    this.targetNodes(systemNodes, checkCollision, tileSize, effectiveSpeed, player, rulesManager);
+    this.targetNodes(systemNodes, checkCollision, tileSize, effectiveSpeed, player, rulesManager, ruleBlocks);
 
     // Deal damage to player if touching
     this.attemptDamagePlayer(player, tryDealPlayerDamage, virusDamageConfig, tileSize);
@@ -153,13 +163,18 @@ export default class Virus {
   checkExitFallbackMode(systemNodes, checkCollision, tileSize, rulesManager) {
     if (!this.inFallbackHuntMode) return;
     
-    // Check if there are any reachable uninfected nodes
+    // Check if there are any reachable uninfected nodes using pathfinding
     for (const node of systemNodes) {
       if (!node.infected && !rulesManager.isRuleActive(2)) {
-        if (this.hasLineOfSight(this.x, this.y, node.x, node.y, tileSize, checkCollision)) {
-          // Exit fallback mode immediately when hunt mode ends and nodes are reachable
+        const path = findPath(this.x, this.y, node.x, node.y, tileSize, checkCollision, 64, 64);
+        if (path !== null) {
+          // Path found, exit fallback mode
           this.inFallbackHuntMode = false;
           this.fallbackHuntTimer = 0;
+          this.currentPath = path;
+          this.pathCacheTimer = 0.5;
+          this.targetNodeId = node.id;
+          this.targetFirewallSwitchId = null;
           break;
         }
       }
@@ -178,11 +193,12 @@ export default class Virus {
     if (this.inFallbackHuntMode) {
       this.fallbackHuntTimer -= dt;
       
-      // Check if there are any reachable uninfected nodes
+      // Check if there are any reachable uninfected nodes using pathfinding
       let hasReachableNode = false;
       for (const node of systemNodes) {
         if (!node.infected && !rulesManager.isRuleActive(2)) {
-          if (this.hasLineOfSight(this.x, this.y, node.x, node.y, tileSize, checkCollision)) {
+          const path = findPath(this.x, this.y, node.x, node.y, tileSize, checkCollision, 64, 64);
+          if (path !== null) {
             hasReachableNode = true;
             break;
           }
@@ -295,66 +311,105 @@ export default class Virus {
   }
 
   /**
-   * Target system nodes for infection.
+   * Target system nodes for infection using pathfinding.
    * @param {Array} systemNodes - Array of system node instances
    * @param {Function} checkCollision - Collision checking function
    * @param {number} tileSize - Size of one tile in pixels
    * @param {number} effectiveSpeed - Calculated movement speed
    * @param {object} player - Player instance
    * @param {object} rulesManager - RulesManager instance
+   * @param {Array} ruleBlocks - Array of rule block instances
    */
-  targetNodes(systemNodes, checkCollision, tileSize, effectiveSpeed, player, rulesManager) {
+  targetNodes(systemNodes, checkCollision, tileSize, effectiveSpeed, player, rulesManager, ruleBlocks) {
     // Skip target selection if already stopped by rule or if nodes are locked
     if (this.stopped || rulesManager.isRuleActive(2)) return;
 
-    // Target selection: uninfected nodes, then any node
+    // Decrease pathfinding cooldown
+    if (this.pathfindingCooldown > 0) {
+      this.pathfindingCooldown -= 1/60; // Assume 60 FPS for cooldown
+    }
+
+    // Decrease path cache timer
+    if (this.pathCacheTimer > 0) {
+      this.pathCacheTimer -= 1/60;
+    }
+
+    // Determine target: firewall switch or node
     let target = null;
-    let minDist = Infinity;
-    
-    for (const node of systemNodes) {
-      // If NODES ARE LOCKED (Rule 2) is active, viruses cannot target nodes
-      if (!node.infected && !rulesManager.isRuleActive(2)) {
-        const dist = Math.hypot(this.x - node.x, this.y - node.y);
-        if (dist < minDist && this.hasLineOfSight(this.x, this.y, node.x, node.y, tileSize, checkCollision)) {
-          minDist = dist;
-          target = node;
+    let isFirewallSwitch = false;
+
+    if (this.targetFirewallSwitchId !== null) {
+      // We're targeting a firewall switch
+      const firewallSwitch = { x: 0, y: 0 }; // Will be set below
+      // Find the rule block with id 1 (firewall switch)
+      for (const ruleBlock of ruleBlocks) {
+        if (ruleBlock.id === 1) {
+          firewallSwitch.x = ruleBlock.x;
+          firewallSwitch.y = ruleBlock.y;
+          break;
         }
       }
-    }
-
-    // If no reachable uninfected nodes found, switch to fallback hunt mode
-    if (!target) {
-      this.inFallbackHuntMode = true;
-      this.fallbackHuntTimer = 2.0; // 2 second cooldown before returning to nodes
-      return;
-    }
-
-    this.targetNodeId = target.id;
-    const dx = target.x - this.x;
-    const dy = target.y - this.y;
-    const distance = Math.hypot(dx, dy);
-    
-    if (distance > 10) {
-      const moveX = (dx / distance) * effectiveSpeed;
-      const moveY = (dy / distance) * effectiveSpeed;
-      
-      // Try diagonal movement first
-      if (!checkCollision(this.x + moveX, this.y + moveY)) {
-        this.x += moveX;
-        this.y += moveY;
-      } else {
-        // Wall sliding: try moving along each axis separately
-        if (!checkCollision(this.x + moveX, this.y)) {
-          this.x += moveX;
-        } else if (!checkCollision(this.x, this.y + moveY)) {
-          this.y += moveY;
-        }
-      }
+      target = firewallSwitch;
+      isFirewallSwitch = true;
     } else {
-      // Begin or continue infection by staying at the target node
-      if (!rulesManager.isRuleActive(2)) {
-        this.targetNodeId = null;
+      // Target nodes for infection
+      // Check if we have a cached path
+      if (this.currentPath.length === 0 || this.pathCacheTimer <= 0 || this.pathfindingCooldown > 0) {
+        // Need to find a new path
+        let bestNode = null;
+        let minPathLength = Infinity;
+
+        for (const node of systemNodes) {
+          if (!node.infected && !rulesManager.isRuleActive(2)) {
+            const path = findPath(this.x, this.y, node.x, node.y, tileSize, checkCollision, 64, 64);
+            
+            if (path !== null) {
+              // Path found, check if it passes through firewall
+              const pathPassesFirewall = this.checkPathForFirewall(path, tileSize, checkCollision, rulesManager);
+              
+              if (!pathPassesFirewall) {
+                // Path is clear, use this node
+                if (path.length < minPathLength) {
+                  minPathLength = path.length;
+                  bestNode = node;
+                  this.currentPath = path;
+                }
+              } else {
+                // Path passes through firewall, check for firewall switch
+                const firewallSwitch = this.findNearestFirewallSwitch(ruleBlocks, tileSize);
+                if (firewallSwitch) {
+                  this.targetFirewallSwitchId = 1;
+                  target = firewallSwitch;
+                  isFirewallSwitch = true;
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        if (!isFirewallSwitch && bestNode) {
+          // Set target to node and cache path
+          this.targetNodeId = bestNode.id;
+          this.targetFirewallSwitchId = null;
+          this.pathCacheTimer = 0.5; // Cache path for 0.5 seconds
+        } else if (!isFirewallSwitch && !bestNode) {
+          // No reachable nodes, enter fallback hunt mode
+          this.inFallbackHuntMode = true;
+          this.fallbackHuntTimer = 2.0;
+          return;
+        }
+      } else {
+        // Use cached path
+        if (this.targetNodeId !== null) {
+          target = systemNodes.find(n => n.id === this.targetNodeId);
+        }
       }
+    }
+
+    // Follow path to target
+    if (target) {
+      this.followPath(effectiveSpeed, checkCollision);
     }
   }
 
@@ -438,5 +493,113 @@ export default class Virus {
     }
     
     return false; // Line of sight is clear of the specific tile type
+  }
+
+  /**
+   * Find the nearest firewall switch position.
+   * @param {Array} ruleBlocks - Array of rule block instances
+   * @param {number} tileSize - Size of one tile in pixels
+   * @returns {object|null} - {x, y} of nearest firewall switch or null if none found
+   */
+  findNearestFirewallSwitch(ruleBlocks, tileSize) {
+    let nearestSwitch = null;
+    let minDist = Infinity;
+
+    for (const ruleBlock of ruleBlocks) {
+      // Rule 1 is FIREWALL IS WALL
+      if (ruleBlock.id === 1) {
+        const dist = Math.hypot(this.x - ruleBlock.x, this.y - ruleBlock.y);
+        if (dist < minDist) {
+          minDist = dist;
+          nearestSwitch = { x: ruleBlock.x, y: ruleBlock.y };
+        }
+      }
+    }
+
+    return nearestSwitch;
+  }
+
+  /**
+   * Check if a path passes through an active firewall.
+   * @param {Array} path - Array of {x, y} waypoints
+   * @param {number} tileSize - Size of one tile in pixels
+   * @param {Function} checkCollision - Collision checking function
+   * @param {object} rulesManager - RulesManager instance
+   * @returns {boolean} - True if path passes through active firewall
+   */
+  checkPathForFirewall(path, tileSize, checkCollision, rulesManager) {
+    if (!rulesManager.isRuleActive(1)) return false; // Firewall not active
+
+    for (const waypoint of path) {
+      const tileX = Math.floor(waypoint.x / tileSize);
+      const tileY = Math.floor(waypoint.y / tileSize);
+
+      // Check if this tile is a firewall tile (ID = 2)
+      if (tileX >= 0 && tileX < 64 && tileY >= 0 && tileY < 64) {
+        const mapTile = levelMap[tileY] ? levelMap[tileY][tileX] : 0;
+        if (mapTile === TILE.FIREWALL) {
+          // Check if this firewall tile is currently active (blocked)
+          if (checkCollision(waypoint.x, waypoint.y)) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Follow the current path toward the target.
+   * @param {number} effectiveSpeed - Calculated movement speed
+   * @param {Function} checkCollision - Collision checking function
+   */
+  followPath(effectiveSpeed, checkCollision) {
+    if (this.currentPath.length === 0) return;
+
+    // Get the next waypoint (skip waypoints we're close to)
+    let targetWaypoint = null;
+    let waypointIndex = -1;
+
+    for (let i = 0; i < this.currentPath.length; i++) {
+      const waypoint = this.currentPath[i];
+      const dist = Math.hypot(this.x - waypoint.x, this.y - waypoint.y);
+      if (dist > 10) {
+        targetWaypoint = waypoint;
+        waypointIndex = i;
+        break;
+      }
+    }
+
+    if (!targetWaypoint) {
+      // Reached the end of the path
+      this.currentPath = [];
+      return;
+    }
+
+    const dx = targetWaypoint.x - this.x;
+    const dy = targetWaypoint.y - this.y;
+    const distance = Math.hypot(dx, dy);
+
+    if (distance > 10) {
+      const moveX = (dx / distance) * effectiveSpeed;
+      const moveY = (dy / distance) * effectiveSpeed;
+
+      // Try diagonal movement first
+      if (!checkCollision(this.x + moveX, this.y + moveY)) {
+        this.x += moveX;
+        this.y += moveY;
+      } else {
+        // Wall sliding: try moving along each axis separately
+        if (!checkCollision(this.x + moveX, this.y)) {
+          this.x += moveX;
+        } else if (!checkCollision(this.x, this.y + moveY)) {
+          this.y += moveY;
+        }
+      }
+    } else {
+      // Remove this waypoint and continue to next
+      this.currentPath.splice(waypointIndex, 1);
+    }
   }
 }
