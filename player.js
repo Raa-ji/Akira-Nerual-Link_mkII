@@ -41,6 +41,8 @@ export default class Player {
     this.captureReadyTime = 0;
     this.huntModeActive = false;
     this.huntWarningTimer = 0;
+    this.huntModeEndTime = 0;  // Time when hunt mode should end (for post-quarantine delay)
+    this.huntModeEndedThisFrame = false;  // Whether hunt mode ended this frame
     this.lastDamageTime = Date.now() / 1000;
     
     // Infection cleaning system

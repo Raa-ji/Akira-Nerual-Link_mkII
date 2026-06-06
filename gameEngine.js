@@ -542,6 +542,10 @@ this.viruses = [
    * @param {number} dt - Delta time in seconds
    */
   updateVirusAI(dt) {
+    // Track if hunt mode ended this frame
+    const huntModeEnded = this.player.huntModeEndedThisFrame || false;
+    this.player.huntModeEndedThisFrame = false;  // Reset for next frame
+    
     this.viruses.forEach(virus => {
       virus.update(
         dt,
@@ -552,6 +556,7 @@ this.viruses = [
         (x, y) => this.checkCollision(x, y),
         (virus) => this.tryDealPlayerDamage(virus),
         this.player.huntModeActive,
+        huntModeEnded,
         CAPTURE_CONFIG,
         VIRUS_DAMAGE_CONFIG,
         TILE_SIZE
@@ -709,10 +714,26 @@ this.viruses = [
       }
     }
 
+    // Handle post-quarantine hunt mode delay (10 seconds)
+    if (this.player.huntModeEndTime > 0) {
+      if (Date.now() / 1000 < this.player.huntModeEndTime) {
+        // Still in delay period, keep hunt mode active
+        this.player.huntModeActive = true;
+      } else {
+        // Delay expired, end hunt mode
+        this.player.huntModeEndedThisFrame = true;  // Signal that hunt mode ended this frame
+        this.player.huntModeEndTime = 0;
+        this.player.huntModeActive = false;
+        this.player.huntWarningTimer = 0;
+      }
+    }
+
     // If there are no viruses left and player is not carrying/quarantining, then hunt mode is truly over
     if (this.viruses.length === 0 && this.player.carryingVirusId === null && !this.player.isQuarantining) {
       this.player.huntModeActive = false;
       this.player.huntWarningTimer = 0;
+      this.player.huntModeEndTime = 0;
+      this.player.huntModeEndedThisFrame = false;
     }
   }
 
@@ -1335,6 +1356,8 @@ this.viruses = [
     this.player.isQuarantining = false;
     this.player.quarantineProgress = 0;
     this.player.huntWarningTimer = 0;
+    // Set hunt mode end time to 10 seconds from now
+    this.player.huntModeEndTime = (Date.now() / 1000) + 10;
 
     this.renderer.triggerGlitchEffect();
     this.checkWinLoseConditions();

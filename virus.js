@@ -36,11 +36,12 @@ export default class Virus {
    * @param {Function} checkCollision - Collision checking function
    * @param {Function} tryDealPlayerDamage - Function to apply damage to player
    * @param {boolean} huntModeActive - Whether hunt mode is active
+   * @param {boolean} huntModeEnded - Whether hunt mode just ended this frame
    * @param {object} captureConfig - Configuration for capture mechanics
    * @param {object} virusDamageConfig - Configuration for virus damage
    * @param {number} tileSize - Size of one tile in pixels
    */
-  update(dt, player, rulesManager, systemNodes, ruleBlocks, checkCollision, tryDealPlayerDamage, huntModeActive, captureConfig, virusDamageConfig, tileSize) {
+  update(dt, player, rulesManager, systemNodes, ruleBlocks, checkCollision, tryDealPlayerDamage, huntModeActive, huntModeEnded, captureConfig, virusDamageConfig, tileSize) {
     // Reset state flags each frame
     this.stopped = false;
     this.slowed = false;
@@ -56,6 +57,11 @@ export default class Virus {
 
     // Update fallback hunt timer
     this.updateFallbackHunt(dt, systemNodes, checkCollision, tileSize, rulesManager);
+
+    // If hunt mode just ended, check if we should exit fallback mode
+    if (huntModeEnded) {
+      this.checkExitFallbackMode(systemNodes, checkCollision, tileSize, rulesManager);
+    }
 
     // If in fallback hunt mode, hunt player instead of targeting nodes
     if (this.inFallbackHuntMode) {
@@ -138,6 +144,29 @@ export default class Virus {
   }
 
   /**
+   * Check if we should exit fallback mode when hunt mode ends.
+   * @param {Array} systemNodes - Array of system node instances
+   * @param {Function} checkCollision - Collision checking function
+   * @param {number} tileSize - Size of one tile in pixels
+   * @param {object} rulesManager - RulesManager instance
+   */
+  checkExitFallbackMode(systemNodes, checkCollision, tileSize, rulesManager) {
+    if (!this.inFallbackHuntMode) return;
+    
+    // Check if there are any reachable uninfected nodes
+    for (const node of systemNodes) {
+      if (!node.infected && !rulesManager.isRuleActive(2)) {
+        if (this.hasLineOfSight(this.x, this.y, node.x, node.y, tileSize, checkCollision)) {
+          // Exit fallback mode immediately when hunt mode ends and nodes are reachable
+          this.inFallbackHuntMode = false;
+          this.fallbackHuntTimer = 0;
+          break;
+        }
+      }
+    }
+  }
+
+  /**
    * Update fallback hunt timer and handle state transitions.
    * @param {number} dt - Delta time in seconds
    * @param {Array} systemNodes - Array of system node instances
@@ -149,26 +178,21 @@ export default class Virus {
     if (this.inFallbackHuntMode) {
       this.fallbackHuntTimer -= dt;
       
-      // Only switch back to node targeting when timer expires AND there are reachable nodes
-      if (this.fallbackHuntTimer <= 0) {
-        // Check if there are any reachable uninfected nodes
-        let hasReachableNode = false;
-        for (const node of systemNodes) {
-          if (!node.infected && !rulesManager.isRuleActive(2)) {
-            if (this.hasLineOfSight(this.x, this.y, node.x, node.y, tileSize, checkCollision)) {
-              hasReachableNode = true;
-              break;
-            }
+      // Check if there are any reachable uninfected nodes
+      let hasReachableNode = false;
+      for (const node of systemNodes) {
+        if (!node.infected && !rulesManager.isRuleActive(2)) {
+          if (this.hasLineOfSight(this.x, this.y, node.x, node.y, tileSize, checkCollision)) {
+            hasReachableNode = true;
+            break;
           }
         }
-        
-        if (hasReachableNode) {
-          this.inFallbackHuntMode = false;
-          this.fallbackHuntTimer = 0;
-        } else {
-          // Still no reachable nodes, keep timer at 0 to stay in fallback hunt mode
-          this.fallbackHuntTimer = 0;
-        }
+      }
+      
+      if (hasReachableNode && (this.fallbackHuntTimer <= 0)) {
+        // Exit fallback mode when nodes are reachable and timer has expired
+        this.inFallbackHuntMode = false;
+        this.fallbackHuntTimer = 0;
       }
     }
   }
