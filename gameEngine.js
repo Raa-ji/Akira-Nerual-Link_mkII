@@ -151,13 +151,17 @@ this.viruses = [
     document.getElementById('startScreen').style.display = 'none';
     this.initializeGame();
     this.gameRunning = true;
-    this.isPaused = false;
+    this.isPaused = true;  // Pause immediately so game doesn't run while help is shown
     this.lastTime = performance.now();
     
-    // Auto-request pointer lock on game start
-    this.inputHandler.requestPointerLock(this.canvas);
+    // Show help overlay immediately so player can see controls
+    const overlay = document.getElementById('helpOverlay');
+    if (overlay) {
+      overlay.style.display = 'block';
+    }
     
-    requestAnimationFrame((currentTime) => this.gameLoop(currentTime));
+    // Don't start the game loop until help is closed
+    // The loop will be started when toggleHelp() is called to close the overlay
   }
 
   /**
