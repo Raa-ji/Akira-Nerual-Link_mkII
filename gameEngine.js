@@ -1311,6 +1311,11 @@ this.viruses = [
     const overlay = document.getElementById('helpOverlay');
     if (this.isPaused) {
       overlay.style.display = 'none';
+      
+      // Clear accumulated mouse delta to prevent direction change on unpause
+      // This discards any mouse movement that occurred while the game was paused
+      this.inputHandler.getMouseDelta();
+      
       this.isPaused = false;
       this.gameRunning = true;
       this.lastTime = performance.now();
