@@ -190,7 +190,7 @@ export default class Renderer {
           const tileType = levelMap[tileY][tileX];
           
           // Check for walls
-          if (tileType === TILE.WALL || tileType === TILE.TUTORIAL_WALL) {
+          if (tileType === TILE.WALL || tileType === TILE.TUTORIAL_WALL || tileType === TILE.ALTERNATE_WALL || tileType === TILE.CONTRAST_WALL) {
             hitWall = true;
             wallColor = this.getWallColor(tileType, distance);
           } else if (tileType === TILE.FIREWALL && player.toggleStates[1]) {
@@ -235,6 +235,10 @@ export default class Renderer {
         return COLORS.PURPLE;
       case TILE.TUTORIAL_WALL:
         return COLORS.NEON_PINK;
+      case TILE.ALTERNATE_WALL:
+        return COLORS.ELECTRIC_BLUE;
+      case TILE.CONTRAST_WALL:
+        return COLORS.CONTRAST_WALL;
       default:
         return COLORS.WHITE;
     }
@@ -708,9 +712,11 @@ export default class Renderer {
           const ph = Math.min(tileHeight, this.radarCanvas.height - py);
           
           // Draw based on tile type
-          if (tileType === TILE.WALL || tileType === TILE.TUTORIAL_WALL) {
+          if (tileType === TILE.WALL || tileType === TILE.TUTORIAL_WALL || tileType === TILE.ALTERNATE_WALL || tileType === TILE.CONTRAST_WALL) {
             this.radarCtx.fillStyle = '#647895';
             if (tileType === TILE.TUTORIAL_WALL) this.radarCtx.fillStyle = '#b830c7';
+            if (tileType === TILE.ALTERNATE_WALL) this.radarCtx.fillStyle = COLORS.ELECTRIC_BLUE;
+            if (tileType === TILE.CONTRAST_WALL) this.radarCtx.fillStyle = COLORS.CONTRAST_WALL;
             this.radarCtx.fillRect(px, py, pw, ph);
           } else if (tileType === TILE.FIREWALL) {
             this.radarCtx.fillStyle = '#F9E644';

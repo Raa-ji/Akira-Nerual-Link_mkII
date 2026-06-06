@@ -521,6 +521,8 @@ this.viruses = [
     switch (tileType) {
       case TILE.WALL:
       case TILE.TUTORIAL_WALL:
+      case TILE.ALTERNATE_WALL:
+      case TILE.CONTRAST_WALL:
         isWall = true;
         break;
       case TILE.FIREWALL:
