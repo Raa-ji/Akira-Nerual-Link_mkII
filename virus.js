@@ -106,7 +106,7 @@ export default class Virus {
 
     // Rule 4: VIRUS IS SLOW
     if (rulesManager.isRuleActive(4)) {
-      this.speedMultiplier *= 0.6; // 60% speed
+      this.speedMultiplier *= 0.5; // 50% speed
     }
 
     return this.speed * this.speedMultiplier;
@@ -124,7 +124,7 @@ export default class Virus {
    */
   huntPlayer(dt, player, checkCollision, effectiveSpeed, tryDealPlayerDamage, virusDamageConfig, tileSize) {
     // Hunt mode: 1.75x speed multiplier applied here for clarity
-    const huntEffectiveSpeed = effectiveSpeed * 1.75 * dt;
+    const huntEffectiveSpeed = effectiveSpeed * 1.5 * dt;
     
     // Try to find a path to the player using A* pathfinding
     const path = findPath(this.x, this.y, player.x, player.y, tileSize, checkCollision, 64, 64);
