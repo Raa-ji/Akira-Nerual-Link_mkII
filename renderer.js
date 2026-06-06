@@ -775,8 +775,8 @@ export default class Renderer {
     const playerTileY = Math.floor(player.y / TILE_SIZE);
     
     // Radar view radius (tiles visible)
-    const viewRadiusX = 12;
-    const viewRadiusY = 5;
+    const viewRadiusX = 16;
+    const viewRadiusY = 7;
     
     // Center of radar canvas
     const centerX = this.radarCanvas.width / 2;
