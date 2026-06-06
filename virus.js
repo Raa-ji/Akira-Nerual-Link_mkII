@@ -1,7 +1,7 @@
 "use strict";
 
 import { findPath } from './pathfinding.js';
-import { TILE_SIZE, TILE, COLORS } from './config.js';
+import { TILE_SIZE, TILE, COLORS, VIRUS_TARGETING_CONFIG } from './config.js';
 import { levelMap } from './mapData.js';
 
 /**
@@ -34,6 +34,11 @@ export default class Virus {
     this.pathCacheTimer = 0;
     this.targetFirewallSwitchId = null;
     this.pathfindingCooldown = 0;
+    
+    // Priority-based target selection
+    this.currentTargetNodeId = null;
+    this.currentTargetPriority = 0;
+    this.targetSwitchCooldown = 0;
   }
 
   /**
@@ -184,7 +189,7 @@ export default class Virus {
           this.inFallbackHuntMode = false;
           this.fallbackHuntTimer = 0;
           this.currentPath = path;
-          this.pathCacheTimer = 0.5;
+          this.pathCacheTimer = 2.5;
           this.targetNodeId = node.id;
           this.targetFirewallSwitchId = null;
           break;
@@ -356,6 +361,11 @@ export default class Virus {
       this.pathCacheTimer -= 1/60;
     }
 
+    // Decrease target switch cooldown
+    if (this.targetSwitchCooldown > 0) {
+      this.targetSwitchCooldown -= dt;
+    }
+
     // Determine target: firewall switch or node
     let target = null;
     let isFirewallSwitch = false;
@@ -380,6 +390,7 @@ export default class Virus {
         // Need to find a new path
         let bestNode = null;
         let minPathLength = Infinity;
+        let bestPath = [];
 
         for (const node of systemNodes) {
           if (!node.infected && !rulesManager.isRuleActive(2)) {
@@ -390,11 +401,11 @@ export default class Virus {
               const pathPassesFirewall = this.checkPathForFirewall(path, tileSize, checkCollision, rulesManager);
               
               if (!pathPassesFirewall) {
-                // Path is clear, use this node
-                if (path.length < minPathLength) {
+                // Path is clear, use this node if it's shorter
+                if (bestNode === null || path.length < minPathLength) {
                   minPathLength = path.length;
                   bestNode = node;
-                  this.currentPath = path;
+                  bestPath = path;
                 }
               } else {
                 // Path passes through firewall, check for firewall switch
@@ -414,8 +425,14 @@ export default class Virus {
           // Set target to node and cache path
           target = bestNode;
           this.targetNodeId = bestNode.id;
+          this.currentTargetNodeId = bestNode.id;
+          this.currentTargetPriority = 1 / (minPathLength + 1);
           this.targetFirewallSwitchId = null;
-          this.pathCacheTimer = 0.5; // Cache path for 0.5 seconds
+          this.currentPath = bestPath;
+          
+          // Reset cache timer and cooldown
+          this.pathCacheTimer = 10.0; // Cache path for 10 seconds to prevent frequent recalculation
+          this.targetSwitchCooldown = VIRUS_TARGETING_CONFIG.TARGET_SWITCH_COOLDOWN;
         } else if (!isFirewallSwitch && !bestNode) {
           // Fallback: If pathfinding failed for all nodes, pick the nearest node and move directly
           let nearestNode = null;
@@ -435,9 +452,11 @@ export default class Virus {
             // Found a reachable node via direct movement
             target = nearestNode;
             this.targetNodeId = nearestNode.id;
+            this.currentTargetNodeId = nearestNode.id;
+            this.currentTargetPriority = 1 / (minDist + 1);
             this.targetFirewallSwitchId = null;
             this.currentPath = []; // Clear path for direct movement
-            this.pathCacheTimer = 0.5;
+            this.pathCacheTimer = 10.0; // Cache path for 10 seconds
           } else {
             // No nodes available, enter fallback hunt mode
             this.inFallbackHuntMode = true;

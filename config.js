@@ -59,6 +59,14 @@ export const VIRUS_DAMAGE_CONFIG = {
 };
 
 /**
+ * Virus targeting configuration
+ */
+export const VIRUS_TARGETING_CONFIG = {
+  TARGET_SWITCH_THRESHOLD: 0.5,  // 50% better path required to switch
+  TARGET_SWITCH_COOLDOWN: 3.0    // Minimum seconds between switches
+};
+
+/**
  * Capture and quarantine configuration
  */
 export const CAPTURE_CONFIG = {
